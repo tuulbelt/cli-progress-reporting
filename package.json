@@ -1,0 +1,33 @@
+{
+  "name": "@tuulbelt/cli-progress-reporting",
+  "version": "0.1.0",
+  "description": "Concurrent-safe progress reporting for CLI tools",
+  "main": "src/index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "node --import tsx --test test/index.test.ts",
+    "test:watch": "node --import tsx --test --watch test/index.test.ts"
+  },
+  "keywords": [
+    "tuulbelt",
+    "cli",
+    "progress",
+    "reporting",
+    "status",
+    "concurrent"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tuulbelt/cli-progress-reporting.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}
