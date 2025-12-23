@@ -116,8 +116,8 @@ export function init(
   message: string,
   config: ProgressConfig = {}
 ): Result<ProgressState> {
-  if (total <= 0) {
-    return { ok: false, error: 'Total must be greater than 0' };
+  if (isNaN(total) || total <= 0) {
+    return { ok: false, error: 'Total must be a valid number greater than 0' };
   }
 
   const now = Date.now();
@@ -408,7 +408,7 @@ Examples:
 
   switch (parsed.command) {
     case 'init':
-      if (!('total' in parsed) || !parsed.total || !('message' in parsed) || !parsed.message) {
+      if (!('total' in parsed) || parsed.total === undefined || !('message' in parsed) || !parsed.message) {
         console.error('Error: init requires --total and --message');
         globalThis.process?.exit(1);
         return;
