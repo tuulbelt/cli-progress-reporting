@@ -279,12 +279,32 @@ bash examples/cli-usage.sh
 ## Testing
 
 ```bash
-npm test              # Run all tests (35 tests)
+npm test              # Run all tests (93 tests)
 npm run build         # TypeScript compilation
 npx tsc --noEmit      # Type check only
 ```
 
-Test coverage: 80%+ (unit, integration, edge cases, concurrent safety)
+**Test Coverage:** 93 tests across 34 suites
+- Unit tests (35 tests)
+- CLI integration tests (28 tests)
+- Filesystem edge cases (21 tests)
+- Performance & stress tests (9 tests)
+
+**Test Quality:**
+- 100% pass rate
+- Zero flaky tests (validated with Test Flakiness Detector)
+- Fully deterministic
+- Comprehensive edge case coverage
+
+### Dogfooding Validation
+
+We use **Test Flakiness Detector** (another Tuulbelt tool) to validate test reliability:
+
+```bash
+npx tsx test/flakiness-detection.test.ts
+```
+
+This runs the entire test suite 20 times to detect any non-deterministic behavior. See [DOGFOODING.md](DOGFOODING.md) for details.
 
 ## Error Handling
 
