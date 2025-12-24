@@ -370,14 +370,14 @@ Potential improvements for future versions:
 - Integration with popular build tools (npm scripts, Make, Gradle)
 - Optional compression for progress state files
 
+
 ## Demo
 
-See the tool in action:
+![Demo](docs/demo.gif)
 
-- **Interactive Demo**: [View on asciinema.org](#) (Coming soon)
-- **Try it Online**: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting)
+**[▶ View interactive recording on asciinema.org](https://asciinema.org/a/7mTUvixQrg1gCPR8pF2tUfHRG)**
 
-> Demos are automatically generated via GitHub Actions. See [`.github/workflows/create-demos.yml`](../.github/workflows/create-demos.yml) for automation details.
+> Try it online: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting)
 
 ## License
 
