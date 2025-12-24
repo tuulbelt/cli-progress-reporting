@@ -370,11 +370,13 @@ Potential improvements for future versions:
 - Integration with popular build tools (npm scripts, Make, Gradle)
 - Optional compression for progress state files
 
+
+
 ## Demo
 
-See the tool in action:
+![Demo](docs/demo.gif)
 
-- **Interactive Demo**: [View on asciinema.org](#) (Coming soon)
+**[▶ View interactive recording on asciinema.org](https://asciinema.org/a/52gagWZuQNnLmvMso34oZlSpZ)**
 
 <p style="display: flex; align-items: center; gap: 0.5rem;">
   <strong>Try it online:</strong>
@@ -382,8 +384,6 @@ See the tool in action:
     <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz">
   </a>
 </p>
-
-> Demos are automatically generated via GitHub Actions. See [`.github/workflows/create-demos.yml`](../.github/workflows/create-demos.yml) for automation details.
 
 ## License
 
