@@ -351,6 +351,17 @@ Uses the **write-then-rename** pattern for atomic updates:
 
 This ensures concurrent processes never read partial writes.
 
+## Future Enhancements
+
+Potential improvements for future versions:
+
+- Real-time progress streaming via WebSocket or Server-Sent Events
+- Built-in progress bar rendering with customizable formats
+- Progress aggregation across multiple trackers
+- Time estimation based on historical progress rates
+- Integration with popular build tools (npm scripts, Make, Gradle)
+- Optional compression for progress state files
+
 ## License
 
 MIT — see [LICENSE](LICENSE)
