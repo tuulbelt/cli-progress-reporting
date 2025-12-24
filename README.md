@@ -378,12 +378,12 @@ Potential improvements for future versions:
 
 **[▶ View interactive recording on asciinema.org](https://asciinema.org/a/52gagWZuQNnLmvMso34oZlSpZ)**
 
-<p style="display: flex; align-items: center; gap: 0.5rem;">
-  <strong>Try it online:</strong>
-  <a href="https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting">
-    <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz">
+<div>
+  <span style="display: inline-block; vertical-align: middle; margin-right: 8px;"><strong>Try it online:</strong></span>
+  <a href="https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting" style="display: inline-block; vertical-align: middle;">
+    <img src="https://developer.stackblitz.com/img/open_in_stackblitz.svg" alt="Open in StackBlitz" style="vertical-align: middle;">
   </a>
-</p>
+</div>
 
 ## License
 
