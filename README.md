@@ -1,5 +1,13 @@
 # CLI Progress Reporting
 
+[![Tests](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml/badge.svg)](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml)
+[![Tool Tests](https://github.com/tuulbelt/tuulbelt/workflows/Test%20All%20Tools/badge.svg?branch=main)](https://github.com/tuulbelt/tuulbelt/actions)
+![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
+![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
+![Tests](https://img.shields.io/badge/tests-93%2B%20passing-success)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Concurrent-safe progress reporting for CLI tools using file-based atomic writes.
 
 ## Problem
@@ -361,6 +369,15 @@ Potential improvements for future versions:
 - Time estimation based on historical progress rates
 - Integration with popular build tools (npm scripts, Make, Gradle)
 - Optional compression for progress state files
+
+## Demo
+
+See the tool in action:
+
+- **Interactive Demo**: [View on asciinema.org](#) (Coming soon)
+- **Try it Online**: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting)
+
+> Demos are automatically generated via GitHub Actions. See [`.github/workflows/create-demos.yml`](../.github/workflows/create-demos.yml) for automation details.
 
 ## License
 
