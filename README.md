@@ -304,15 +304,38 @@ npx tsc --noEmit      # Type check only
 - Fully deterministic
 - Comprehensive edge case coverage
 
-### Dogfooding Validation
+### Dogfooding: Tool Composition
 
-We use **Test Flakiness Detector** (another Tuulbelt tool) to validate test reliability:
+This tool demonstrates how Tuulbelt tools work together:
+
+**1. Validates Test Reliability**
+
+We use **Test Flakiness Detector** to validate test reliability:
 
 ```bash
 npx tsx test/flakiness-detection.test.ts
 ```
 
 This runs the entire test suite 20 times to detect any non-deterministic behavior. See [DOGFOODING.md](DOGFOODING.md) for details.
+
+**2. Used By Test Flakiness Detector**
+
+The **Test Flakiness Detector** integrates cli-progress-reporting to show real-time progress during detection (when running ≥5 iterations):
+
+```bash
+cd ../test-flakiness-detector
+npx tsx src/index.ts --test "npm test" --runs 20 --verbose
+# [INFO] Progress tracking enabled (dogfooding cli-progress-reporting)
+# [INFO] Run 1/20
+# [INFO] Run 2/20 passed (2 passed, 0 failed)
+# ...
+```
+
+This provides:
+- Live run counts and pass/fail status
+- Better UX for long detection runs (50-100 iterations)
+- Real-world validation of the progress reporting tool
+- Graceful fallback when cloned standalone
 
 ## Error Handling
 
