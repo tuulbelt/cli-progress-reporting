@@ -97,7 +97,7 @@ try {
   console.log('─'.repeat(60));
   console.log(`  Consistency:     ${report.passedRuns === report.totalRuns ? '100%' : '0%'} (all runs same result)`);
   console.log(`  Determinism:     ${report.flakyTests.length === 0 ? 'Confirmed' : 'FAILED'}`);
-  console.log(`  Total tests:     93 tests across 34 suites`);
+  console.log(`  Total tests:     111 tests`);
   console.log(`  Test iterations: ${report.totalRuns} runs`);
   console.log('─'.repeat(60));
   console.log('');
