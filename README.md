@@ -5,7 +5,7 @@
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
-![Tests](https://img.shields.io/badge/tests-125%2B%20passing-success)
+![Tests](https://img.shields.io/badge/tests-111%2B%20passing-success)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Concurrent-safe progress reporting for CLI tools using file-based atomic writes.
@@ -287,16 +287,16 @@ bash examples/cli-usage.sh
 ## Testing
 
 ```bash
-npm test              # Run all tests (93 tests)
+npm test              # Run all tests (111 tests)
 npm run build         # TypeScript compilation
 npx tsc --noEmit      # Type check only
 ```
 
-**Test Coverage:** 93 tests across 34 suites
+**Test Coverage:** 111 tests
 - Unit tests (35 tests)
 - CLI integration tests (28 tests)
 - Filesystem edge cases (21 tests)
-- Performance & stress tests (9 tests)
+- Fuzzy tests (32 tests)
 
 **Test Quality:**
 - 100% pass rate

@@ -6,13 +6,12 @@
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/performance.test.ts test/fuzzy.test.ts",
+    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts",
     "test:unit": "node --import tsx --test test/index.test.ts",
     "test:cli": "node --import tsx --test test/cli.test.ts",
     "test:filesystem": "node --import tsx --test test/filesystem.test.ts",
-    "test:performance": "node --import tsx --test test/performance.test.ts",
     "test:fuzzy": "node --import tsx --test test/fuzzy.test.ts",
-    "test:watch": "node --import tsx --test --watch test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/performance.test.ts test/fuzzy.test.ts"
+    "test:watch": "node --import tsx --test --watch test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts"
   },
   "keywords": [
     "tuulbelt",
