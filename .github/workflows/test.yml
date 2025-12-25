@@ -3,8 +3,18 @@ name: Test
 on:
   push:
     branches: [main]
+    paths:
+      - 'cli-progress-reporting/**'
+      - '.github/workflows/test-all-tools.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'cli-progress-reporting/**'
+
+# Cancel in-progress runs when new commits are pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -12,7 +22,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [18, 20, 22]
+        node-version: [20]
 
     steps:
       - name: Checkout repository
@@ -22,12 +32,21 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: 'cli-progress-reporting/package-lock.json'
 
       - name: Install dependencies
+        working-directory: cli-progress-reporting
         run: npm ci
 
+      - name: Check TypeScript (fail fast)
+        working-directory: cli-progress-reporting
+        run: npx tsc --noEmit
+
       - name: Run tests
+        working-directory: cli-progress-reporting
         run: npm test
 
-      - name: Check TypeScript
-        run: npx tsc --noEmit
+      - name: Build
+        working-directory: cli-progress-reporting
+        run: npm run build
