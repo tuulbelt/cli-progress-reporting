@@ -306,19 +306,9 @@ npx tsc --noEmit      # Type check only
 
 ### Dogfooding: Tool Composition
 
-This tool demonstrates how Tuulbelt tools work together:
+This tool demonstrates BIDIRECTIONAL VALIDATION - we both USE and are VALIDATED BY other Tuulbelt tools:
 
-**1. Validates Test Reliability**
-
-We use **Test Flakiness Detector** to validate test reliability:
-
-```bash
-npx tsx test/flakiness-detection.test.ts
-```
-
-This runs the entire test suite 20 times to detect any non-deterministic behavior. See [DOGFOODING.md](DOGFOODING.md) for details.
-
-**2. Used By Test Flakiness Detector**
+**1. Used By Test Flakiness Detector (Library Integration)**
 
 The **Test Flakiness Detector** integrates cli-progress-reporting to show real-time progress during detection (when running ≥5 iterations):
 
@@ -336,6 +326,29 @@ This provides:
 - Better UX for long detection runs (50-100 iterations)
 - Real-world validation of the progress reporting tool
 - Graceful fallback when cloned standalone
+
+**2. High-Value Composition Scripts**
+
+**Test Flakiness Detector** - Prove concurrent safety (bidirectional validation):
+```bash
+./scripts/dogfood-flaky.sh 20
+# ✅ NO FLAKINESS DETECTED
+# 125 tests × 20 runs = 2,500 executions
+# Validates concurrent progress tracking
+```
+
+**Output Diffing Utility** - Prove deterministic outputs:
+```bash
+./scripts/dogfood-diff.sh
+# Compares test outputs between runs
+# Should be IDENTICAL (no random data)
+```
+
+This creates a **bidirectional validation network** where:
+- ↔️ Test Flakiness Detector USES CLI Progress (library integration)
+- ↔️ Test Flakiness Detector VALIDATES CLI Progress (composition scripts)
+
+See `DOGFOODING_STRATEGY.md` for implementation details.
 
 ## Error Handling
 
