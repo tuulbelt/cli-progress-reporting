@@ -47,15 +47,99 @@ export type Result<T> =
   | { ok: true; value: T }
   | { ok: false; error: string };
 
+// =============================================================================
+// Security Helpers
+// =============================================================================
+
+/**
+ * Maximum allowed message length to prevent DoS via large messages
+ */
+const MAX_MESSAGE_LENGTH = 10000;
+
+/**
+ * Validate that an ID is safe from path traversal attacks
+ * Only allows alphanumeric characters, hyphens, and underscores
+ */
+function validateId(id: string): Result<string> {
+  if (!id || id.length === 0) {
+    return { ok: false, error: 'ID cannot be empty' };
+  }
+
+  if (id.length > 255) {
+    return { ok: false, error: 'ID exceeds maximum length (255 characters)' };
+  }
+
+  // Only allow safe characters: alphanumeric, hyphen, underscore
+  if (!/^[a-zA-Z0-9_-]+$/.test(id)) {
+    return {
+      ok: false,
+      error: 'ID must contain only alphanumeric characters, hyphens, and underscores',
+    };
+  }
+
+  return { ok: true, value: id };
+}
+
+/**
+ * Validate that a custom file path is safe
+ * Allows custom paths but warns about security implications
+ *
+ * @param filePath - The custom file path to validate
+ * @returns Result with the validated path or an error
+ */
+function validateFilePath(filePath: string): Result<string> {
+  if (!filePath || filePath.length === 0) {
+    return { ok: false, error: 'File path cannot be empty' };
+  }
+
+  // Prevent null bytes
+  if (filePath.includes('\0')) {
+    return { ok: false, error: 'File path contains null byte' };
+  }
+
+  // Warn about path traversal sequences (but allow them for legitimate use)
+  // Note: Users may legitimately want to use absolute paths or relative paths
+  // This is a conscious trade-off between security and usability
+
+  return { ok: true, value: filePath };
+}
+
+/**
+ * Validate message length to prevent DoS
+ */
+function validateMessage(message: string): Result<string> {
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return {
+      ok: false,
+      error: `Message exceeds maximum length (${MAX_MESSAGE_LENGTH} characters)`,
+    };
+  }
+  return { ok: true, value: message };
+}
+
+// =============================================================================
+// Core Functions
+// =============================================================================
+
 /**
  * Get the file path for storing progress
  */
-function getProgressFilePath(config: ProgressConfig): string {
+function getProgressFilePath(config: ProgressConfig): Result<string> {
   if (config.filePath) {
-    return config.filePath;
+    const validation = validateFilePath(config.filePath);
+    if (!validation.ok) {
+      return validation;
+    }
+    return { ok: true, value: config.filePath };
   }
+
   const id = config.id || 'default';
-  return join(tmpdir(), `progress-${id}.json`);
+  const idValidation = validateId(id);
+  if (!idValidation.ok) {
+    return idValidation;
+  }
+
+  return { ok: true, value: join(tmpdir(), `progress-${id}.json`) };
 }
 
 /**
@@ -132,8 +216,12 @@ export function init(
     complete: false,
   };
 
-  const filePath = getProgressFilePath(config);
-  const writeResult = writeProgressAtomic(filePath, state);
+  const filePathResult = getProgressFilePath(config);
+  if (!filePathResult.ok) {
+    return filePathResult as Result<ProgressState>;
+  }
+
+  const writeResult = writeProgressAtomic(filePathResult.value, state);
 
   if (!writeResult.ok) {
     return writeResult as Result<ProgressState>;
@@ -159,8 +247,12 @@ export function increment(
     return { ok: false, error: 'Increment amount must be non-negative' };
   }
 
-  const filePath = getProgressFilePath(config);
-  const readResult = readProgress(filePath);
+  const filePathResult = getProgressFilePath(config);
+  if (!filePathResult.ok) {
+    return filePathResult;
+  }
+
+  const readResult = readProgress(filePathResult.value);
 
   if (!readResult.ok) {
     return readResult;
@@ -179,7 +271,7 @@ export function increment(
     state.complete = true;
   }
 
-  const writeResult = writeProgressAtomic(filePath, state);
+  const writeResult = writeProgressAtomic(filePathResult.value, state);
 
   if (!writeResult.ok) {
     return writeResult as Result<ProgressState>;
@@ -205,8 +297,12 @@ export function set(
     return { ok: false, error: 'Current value must be non-negative' };
   }
 
-  const filePath = getProgressFilePath(config);
-  const readResult = readProgress(filePath);
+  const filePathResult = getProgressFilePath(config);
+  if (!filePathResult.ok) {
+    return filePathResult;
+  }
+
+  const readResult = readProgress(filePathResult.value);
 
   if (!readResult.ok) {
     return readResult;
@@ -225,7 +321,7 @@ export function set(
     state.complete = true;
   }
 
-  const writeResult = writeProgressAtomic(filePath, state);
+  const writeResult = writeProgressAtomic(filePathResult.value, state);
 
   if (!writeResult.ok) {
     return writeResult as Result<ProgressState>;
@@ -245,8 +341,12 @@ export function finish(
   message?: string,
   config: ProgressConfig = {}
 ): Result<ProgressState> {
-  const filePath = getProgressFilePath(config);
-  const readResult = readProgress(filePath);
+  const filePathResult = getProgressFilePath(config);
+  if (!filePathResult.ok) {
+    return filePathResult;
+  }
+
+  const readResult = readProgress(filePathResult.value);
 
   if (!readResult.ok) {
     return readResult;
@@ -262,7 +362,7 @@ export function finish(
     state.message = message;
   }
 
-  const writeResult = writeProgressAtomic(filePath, state);
+  const writeResult = writeProgressAtomic(filePathResult.value, state);
 
   if (!writeResult.ok) {
     return writeResult as Result<ProgressState>;
@@ -278,8 +378,11 @@ export function finish(
  * @returns Result with current state
  */
 export function get(config: ProgressConfig = {}): Result<ProgressState> {
-  const filePath = getProgressFilePath(config);
-  return readProgress(filePath);
+  const filePathResult = getProgressFilePath(config);
+  if (!filePathResult.ok) {
+    return filePathResult;
+  }
+  return readProgress(filePathResult.value);
 }
 
 /**
@@ -290,10 +393,13 @@ export function get(config: ProgressConfig = {}): Result<ProgressState> {
  */
 export function clear(config: ProgressConfig = {}): Result<void> {
   try {
-    const filePath = getProgressFilePath(config);
+    const filePathResult = getProgressFilePath(config);
+    if (!filePathResult.ok) {
+      return filePathResult;
+    }
 
-    if (existsSync(filePath)) {
-      unlinkSync(filePath);
+    if (existsSync(filePathResult.value)) {
+      unlinkSync(filePathResult.value);
     }
 
     return { ok: true, value: undefined };

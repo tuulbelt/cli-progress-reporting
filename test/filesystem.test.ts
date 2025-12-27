@@ -343,14 +343,16 @@ describe('filesystem - recovery scenarios', () => {
 });
 
 describe('filesystem - unicode and encoding', () => {
-  test('handles unicode in filenames via ID', () => {
+  test('rejects unicode in IDs for path safety', () => {
     const id = `unicode-测试-${Date.now()}`;
 
     const result = init(10, 'Unicode test', { id });
 
-    assert.strictEqual(result.ok, true);
-
-    cleanupTestFile({ id });
+    // Unicode IDs are now rejected to prevent path traversal attacks
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('alphanumeric'));
+    }
   });
 
   test('handles emoji in messages', () => {
@@ -387,5 +389,96 @@ describe('filesystem - unicode and encoding', () => {
     }
 
     cleanupTestFile({ id });
+  });
+});
+
+describe('security - path traversal prevention', () => {
+  test('rejects path traversal in ID (..)', () => {
+    const result = init(10, 'Test', { id: '../../../etc/passwd' });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('alphanumeric'));
+    }
+  });
+
+  test('rejects path traversal with slashes', () => {
+    const result = init(10, 'Test', { id: 'foo/bar' });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('alphanumeric'));
+    }
+  });
+
+  test('rejects path traversal with backslashes', () => {
+    const result = init(10, 'Test', { id: 'foo\\bar' });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('alphanumeric'));
+    }
+  });
+
+  test('rejects null bytes in ID', () => {
+    const result = init(10, 'Test', { id: 'test\x00evil' });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('alphanumeric'));
+    }
+  });
+
+  test('accepts empty ID (falls back to default)', () => {
+    // Empty string is falsy, so it falls back to 'default' ID
+    const result = init(10, 'Test', { id: '' });
+
+    assert.strictEqual(result.ok, true);
+    // Clean up default progress file
+    clear({});
+  });
+
+  test('rejects ID exceeding max length', () => {
+    const longId = 'a'.repeat(256);
+    const result = init(10, 'Test', { id: longId });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('maximum length'));
+    }
+  });
+
+  test('accepts valid alphanumeric IDs', () => {
+    const id = getTestId();
+    const result = init(10, 'Test', { id });
+
+    assert.strictEqual(result.ok, true);
+    cleanupTestFile({ id });
+  });
+
+  test('accepts IDs with hyphens and underscores', () => {
+    const id = `my_test-id-${Date.now()}`;
+    const result = init(10, 'Test', { id });
+
+    assert.strictEqual(result.ok, true);
+    cleanupTestFile({ id });
+  });
+
+  test('rejects null bytes in custom file path', () => {
+    const result = init(10, 'Test', { filePath: '/tmp/test\x00evil.json' });
+
+    assert.strictEqual(result.ok, false);
+    if (!result.ok) {
+      assert(result.error.includes('null byte'));
+    }
+  });
+
+  test('accepts empty file path (falls back to default)', () => {
+    // Empty string is falsy, so it falls back to temp directory with default ID
+    const result = init(10, 'Test', { filePath: '' });
+
+    assert.strictEqual(result.ok, true);
+    // Clean up default progress file
+    clear({});
   });
 });

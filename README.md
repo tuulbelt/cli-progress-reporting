@@ -279,6 +279,15 @@ The tool uses file-based atomic writes for concurrent safety:
 
 Multiple processes can safely update the same progress tracker.
 
+## Security Considerations
+
+- **ID validation**: Only alphanumeric characters, hyphens, and underscores allowed (prevents path traversal)
+- **Null byte protection**: IDs and file paths reject null bytes
+- **Max ID length**: 255 characters maximum
+- **High-frequency updates**: Designed for concurrent writes from multiple processes
+- **Shared progress files**: Progress data is meant to be shared—do not include sensitive data in messages
+- **File permissions**: Progress files are created with mode 0o644 (world-readable)
+
 ## Examples
 
 See the `examples/` directory for runnable examples:
