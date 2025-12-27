@@ -37,6 +37,7 @@ Clone the repository:
 git clone https://github.com/tuulbelt/cli-progress-reporting.git
 cd cli-progress-reporting
 npm install  # Install dev dependencies only
+npm link     # Enable the 'prog' command globally
 ```
 
 No runtime dependencies — this tool uses only Node.js standard library.
