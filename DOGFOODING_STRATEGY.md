@@ -21,7 +21,7 @@ This document outlines how CLI Progress Reporting leverages other Tuulbelt tools
 
 RUNS="${1:-20}"
 cd ../test-flakiness-detector
-npx tsx src/index.ts \
+flaky \
     --test "cd '../cli-progress-reporting' && npm test 2>&1" \
     --runs "$RUNS"
 ```

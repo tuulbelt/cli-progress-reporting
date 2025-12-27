@@ -4,6 +4,10 @@
   "description": "Concurrent-safe progress reporting for CLI tools",
   "main": "src/index.ts",
   "type": "module",
+  "bin": {
+    "prog": "./src/index.ts",
+    "cli-progress-reporting": "./src/index.ts"
+  },
   "scripts": {
     "build": "tsc",
     "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts",

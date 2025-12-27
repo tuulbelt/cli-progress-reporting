@@ -1,4 +1,4 @@
-# CLI Progress Reporting
+# CLI Progress Reporting / `prog`
 
 [![Tests](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml/badge.svg)](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml)
 [![Tool Tests](https://github.com/tuulbelt/tuulbelt/workflows/Test%20All%20Tools/badge.svg?branch=main)](https://github.com/tuulbelt/tuulbelt/actions)
@@ -76,22 +76,22 @@ finish('All files processed!', config);
 
 ```bash
 # Initialize progress
-npx tsx src/index.ts init --total 100 --message "Processing files" --id myproject
+prog init --total 100 --message "Processing files" --id myproject
 
 # Increment progress
-npx tsx src/index.ts increment --amount 5 --id myproject
+prog increment --amount 5 --id myproject
 
 # Set absolute progress
-npx tsx src/index.ts set --current 75 --message "Almost done" --id myproject
+prog set --current 75 --message "Almost done" --id myproject
 
 # Get current state
-npx tsx src/index.ts get --id myproject
+prog get --id myproject
 
 # Mark as finished
-npx tsx src/index.ts finish --message "Complete!" --id myproject
+prog finish --message "Complete!" --id myproject
 
 # Clear progress file
-npx tsx src/index.ts clear --id myproject
+prog clear --id myproject
 ```
 
 ### In Shell Scripts
@@ -103,16 +103,16 @@ TASK_ID="my-batch-job"
 TOTAL_FILES=$(ls data/*.csv | wc -l)
 
 # Initialize
-npx tsx src/index.ts init --total $TOTAL_FILES --message "Processing CSV files" --id "$TASK_ID"
+prog init --total $TOTAL_FILES --message "Processing CSV files" --id "$TASK_ID"
 
 # Process files
 for file in data/*.csv; do
   process_file "$file"
-  npx tsx src/index.ts increment --amount 1 --message "Processed $(basename $file)" --id "$TASK_ID"
+  prog increment --amount 1 --message "Processed $(basename $file)" --id "$TASK_ID"
 done
 
 # Finish
-npx tsx src/index.ts finish --message "All files processed" --id "$TASK_ID"
+prog finish --message "All files processed" --id "$TASK_ID"
 ```
 
 ## API
@@ -314,7 +314,7 @@ The **Test Flakiness Detector** integrates cli-progress-reporting to show real-t
 
 ```bash
 cd ../test-flakiness-detector
-npx tsx src/index.ts --test "npm test" --runs 20 --verbose
+prog --test "npm test" --runs 20 --verbose
 # [INFO] Progress tracking enabled (dogfooding cli-progress-reporting)
 # [INFO] Run 1/20
 # [INFO] Run 2/20 passed (2 passed, 0 failed)

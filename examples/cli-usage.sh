@@ -14,7 +14,7 @@ PROGRESS_ID="shell-example"
 
 # Initialize progress
 echo "Initializing progress..."
-npx tsx src/index.ts init --total 5 --message "Processing shell tasks" --id "$PROGRESS_ID"
+prog init --total 5 --message "Processing shell tasks" --id "$PROGRESS_ID"
 echo ""
 
 # Simulate processing tasks
@@ -23,21 +23,21 @@ for i in {1..5}; do
   sleep 1
 
   # Increment progress
-  npx tsx src/index.ts increment --amount 1 --message "Completed task $i" --id "$PROGRESS_ID"
+  prog increment --amount 1 --message "Completed task $i" --id "$PROGRESS_ID"
   echo ""
 done
 
 # Get final status
 echo "Getting final status..."
-npx tsx src/index.ts get --id "$PROGRESS_ID"
+prog get --id "$PROGRESS_ID"
 echo ""
 
 # Mark as finished
 echo "Marking as finished..."
-npx tsx src/index.ts finish --message "All tasks complete!" --id "$PROGRESS_ID"
+prog finish --message "All tasks complete!" --id "$PROGRESS_ID"
 echo ""
 
 # Clean up
 echo "Cleaning up..."
-npx tsx src/index.ts clear --id "$PROGRESS_ID"
+prog clear --id "$PROGRESS_ID"
 echo "Done!"
