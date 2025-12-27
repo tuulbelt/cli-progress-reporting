@@ -5,7 +5,7 @@
  * Concurrent-safe progress reporting for CLI tools using file-based atomic writes.
  */
 
-import { writeFileSync, readFileSync, unlinkSync, renameSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, unlinkSync, renameSync, existsSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
@@ -466,7 +466,18 @@ Examples:
 }
 
 // Check if this module is being run directly
+// Must resolve symlinks for npm link support (argv1 may be symlink path)
 const argv1 = globalThis.process?.argv?.[1];
-if (argv1 && import.meta.url === `file://${argv1}`) {
-  main();
+if (argv1) {
+  try {
+    const realPath = realpathSync(argv1);
+    if (import.meta.url === `file://${realPath}`) {
+      main();
+    }
+  } catch {
+    // Fallback for non-existent paths
+    if (import.meta.url === `file://${argv1}`) {
+      main();
+    }
+  }
 }
