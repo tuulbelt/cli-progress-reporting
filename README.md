@@ -446,11 +446,12 @@ Potential improvements for future versions:
 
 
 
+
 ## Demo
 
 ![Demo](docs/demo.gif)
 
-**[▶ View interactive recording on asciinema.org](https://asciinema.org/a/DMUfsw7Ln0xox7v1x3CogM5Fm)**
+**[▶ View interactive recording on asciinema.org](https://asciinema.org/a/kZmkEpKM6lTPFQLRfUp8KM8GB)**
 
 > Try it online: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting)
 
