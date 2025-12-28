@@ -61,7 +61,7 @@ echo "🎯 Running validation ($RUNS iterations for concurrent safety)..."
 echo ""
 
 cd "$DETECTOR_DIR"
-npx prog \
+npx flaky \
     --test "cd '$TOOL_DIR' && npm test 2>&1" \
     --runs "$RUNS" \
     --verbose
