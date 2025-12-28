@@ -61,12 +61,14 @@ echo "🎯 Running validation ($RUNS iterations for concurrent safety)..."
 echo ""
 
 cd "$DETECTOR_DIR"
+set +e  # Temporarily disable exit on error to capture exit code
 npx flaky \
     --test "cd '$TOOL_DIR' && npm test 2>&1" \
     --runs "$RUNS" \
     --verbose
 
 EXIT_CODE=$?
+set -e  # Re-enable exit on error
 
 echo ""
 if [ $EXIT_CODE -eq 0 ]; then
@@ -85,6 +87,7 @@ else
     echo ""
     echo "⚠️  FIX BEFORE USING IN PRODUCTION"
     echo "⚠️  This affects Test Flakiness Detector's progress tracking!"
+    exit 1
 fi
 
 echo ""
