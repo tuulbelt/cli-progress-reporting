@@ -46,7 +46,7 @@ if [ ! -d "$DIFF_DIR" ]; then
     exit 0
 fi
 
-if [ ! -f "$DIFF_DIR/target/release/output-diff" ]; then
+if [ ! -f "$DIFF_DIR/target/release/odiff" ]; then
     echo "🔨 Building Output Diffing Utility..."
     (cd "$DIFF_DIR" && cargo build --release 2>&1 | grep -v "Compiling\|Finished" || true)
 fi
@@ -72,7 +72,7 @@ echo "📊 Comparing outputs with Output Diffing Utility..."
 echo "---"
 
 cd "$DIFF_DIR"
-./target/release/output-diff "$TEMP_DIR/run1.txt" "$TEMP_DIR/run2.txt" || {
+./target/release/odiff "$TEMP_DIR/run1.txt" "$TEMP_DIR/run2.txt" --type text || {
   DIFF_EXIT=$?
   if [ $DIFF_EXIT -eq 1 ]; then
     echo ""
