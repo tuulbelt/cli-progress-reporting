@@ -3,13 +3,8 @@ name: Test
 on:
   push:
     branches: [main]
-    paths:
-      - 'cli-progress-reporting/**'
-      - '.github/workflows/test-all-tools.yml'
   pull_request:
     branches: [main]
-    paths:
-      - 'cli-progress-reporting/**'
 
 # Cancel in-progress runs when new commits are pushed
 concurrency:
@@ -22,7 +17,7 @@ jobs:
 
     strategy:
       matrix:
-        node-version: [20]
+        node-version: [18, 20, 22]
 
     steps:
       - name: Checkout repository
@@ -33,20 +28,25 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
           cache: 'npm'
-          cache-dependency-path: 'cli-progress-reporting/package-lock.json'
 
       - name: Install dependencies
-        working-directory: cli-progress-reporting
         run: npm ci
 
-      - name: Check TypeScript (fail fast)
-        working-directory: cli-progress-reporting
+      - name: Type check
         run: npx tsc --noEmit
 
       - name: Run tests
-        working-directory: cli-progress-reporting
         run: npm test
 
       - name: Build
-        working-directory: cli-progress-reporting
         run: npm run build
+
+      - name: Verify zero external dependencies
+        run: |
+          if grep -q '"dependencies"' package.json; then
+            deps=$(node -e "console.log(Object.keys(require('./package.json').dependencies || {}).filter(d => !d.startsWith('@tuulbelt/')).length)")
+            if [ "$deps" != "0" ]; then
+              echo "ERROR: Found external dependencies!"
+              exit 1
+            fi
+          fi

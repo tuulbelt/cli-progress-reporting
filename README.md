@@ -1,7 +1,6 @@
 # CLI Progress Reporting / `prog`
 
-[![Tests](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml/badge.svg)](https://github.com/tuulbelt/tuulbelt/actions/workflows/test-all-tools.yml)
-[![Tool Tests](https://github.com/tuulbelt/tuulbelt/workflows/Test%20All%20Tools/badge.svg?branch=main)](https://github.com/tuulbelt/tuulbelt/actions)
+[![Tests](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml/badge.svg)](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml)
 ![Version](https://img.shields.io/badge/version-0.1.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
@@ -332,7 +331,7 @@ This tool demonstrates BIDIRECTIONAL VALIDATION - we both USE and are VALIDATED 
 The **Test Flakiness Detector** integrates cli-progress-reporting to show real-time progress during detection (when running ≥5 iterations):
 
 ```bash
-cd ../test-flakiness-detector
+cd /path/to/test-flakiness-detector
 prog --test "npm test" --runs 20 --verbose
 # [INFO] Progress tracking enabled (dogfooding cli-progress-reporting)
 # [INFO] Run 1/20
@@ -454,7 +453,7 @@ Potential improvements for future versions:
 
 **[▶ View interactive recording on asciinema.org](https://asciinema.org/a/kZmkEpKM6lTPFQLRfUp8KM8GB)**
 
-> Try it online: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/tuulbelt/tree/main/cli-progress-reporting)
+> Try it online: [![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/github/tuulbelt/cli-progress-reporting)
 
 ## License
 
@@ -462,10 +461,10 @@ MIT — see [LICENSE](LICENSE)
 
 ## Contributing
 
-See [CONTRIBUTING.md](../CONTRIBUTING.md) for contribution guidelines.
+See [CONTRIBUTING.md](https://github.com/tuulbelt/tuulbelt/blob/main/CONTRIBUTING.md) for contribution guidelines.
 
 ## Related Tools
 
 Part of the [Tuulbelt](https://github.com/tuulbelt/tuulbelt) collection:
-- [Test Flakiness Detector](../test-flakiness-detector/) — Detect unreliable tests
-- More tools coming soon...
+- [Test Flakiness Detector](https://github.com/tuulbelt/test-flakiness-detector) — Detect unreliable tests
+- More tools at https://tuulbelt.github.io/tuulbelt/
