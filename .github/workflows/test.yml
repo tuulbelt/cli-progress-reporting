@@ -41,6 +41,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Dogfood (flakiness detection)
+        run: npm run dogfood
+
       - name: Verify zero external dependencies
         run: |
           if grep -q '"dependencies"' package.json; then
