@@ -16,6 +16,7 @@
     "test:filesystem": "node --import tsx --test test/filesystem.test.ts",
     "test:fuzzy": "node --import tsx --test test/fuzzy.test.ts",
     "test:watch": "node --import tsx --test --watch test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts",
+    "bench": "node --import tsx benchmarks/index.bench.ts",
     "dogfood": "npm run dogfood:flaky",
     "dogfood:flaky": "flaky --test 'npm test' --runs 10"
   },
@@ -42,6 +43,7 @@
   "devDependencies": {
     "@tuulbelt/test-flakiness-detector": "git+https://github.com/tuulbelt/test-flakiness-detector.git",
     "@types/node": "^20.19.27",
+    "tatami-ng": "^0.8.0",
     "tsx": "^4.7.0",
     "typescript": "^5.3.0"
   }
