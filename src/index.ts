@@ -429,6 +429,12 @@ export function formatProgress(state: ProgressState): string {
 
 export { ProgressTracker, type ProgressTrackerConfig } from './progress-tracker.js';
 export { ProgressBuilder } from './progress-builder.js';
+export {
+  MultiProgress,
+  type MultiProgressConfig,
+  type MultiProgressTrackerConfig,
+  type MultiProgressState,
+} from './multi-progress.js';
 
 /**
  * Create a new ProgressTracker instance

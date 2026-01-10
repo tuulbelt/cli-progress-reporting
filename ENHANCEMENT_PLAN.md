@@ -22,7 +22,7 @@ This document tracks the enhancement of cli-progress-reporting based on the Prop
 | Enhancement | Priority | Status |
 |-------------|----------|--------|
 | Multi-API Design | HIGH | ✅ Complete |
-| Concurrent Progress (MultiProgress) | HIGH | 🔴 Not Started |
+| Concurrent Progress (MultiProgress) | HIGH | ✅ Complete (API only, CLI deferred) |
 | Template System | MEDIUM | 🔴 Not Started |
 | Streaming API | LOW | 🔴 Not Started |
 | SPEC.md Documentation | HIGH | 🔴 Not Started |
@@ -163,20 +163,22 @@ prog multi done --id myproject
 
 ### Implementation Steps
 
-#### Step 2.1: Create MultiProgress Class
+#### Step 2.1: Create MultiProgress Class ✅
 
-- [ ] Create `src/multi-progress.ts`
-- [ ] Define `MultiProgress` class with:
+- [x] Create `src/multi-progress.ts`
+- [x] Define `MultiProgress` class with:
   - `add(config: ProgressConfig): ProgressTracker`
   - `get(trackerId: string): Result<ProgressTracker>`
   - `getAll(): Result<ProgressTracker[]>`
   - `remove(trackerId: string): Result<void>`
   - `done(): Result<void>`
   - `clear(): Result<void>`
+  - `sync(): Result<void>` (bonus: reload state from disk)
+  - `status(): Result<MultiProgressState>` (bonus: get state snapshot)
 
-#### Step 2.2: File-Based State Management
+#### Step 2.2: File-Based State Management ✅
 
-- [ ] Design multi-progress JSON format:
+- [x] Design multi-progress JSON format:
   ```json
   {
     "trackers": {
@@ -189,10 +191,10 @@ prog multi done --id myproject
     }
   }
   ```
-- [ ] Store in `progress-multi-{id}.json`
-- [ ] Use same atomic write pattern
+- [x] Store in `progress-multi-{id}.json`
+- [x] Use same atomic write pattern
 
-#### Step 2.3: CLI Commands
+#### Step 2.3: CLI Commands ⏸️ (Deferred)
 
 - [ ] Add `prog multi init` command
 - [ ] Add `prog multi add` command
@@ -200,17 +202,20 @@ prog multi done --id myproject
 - [ ] Add `prog multi status` command
 - [ ] Add `prog multi done` command
 
-#### Step 2.4: Add Tests
+**Note:** CLI commands deferred to focus on core API completion. MultiProgress can be used programmatically in v0.2.0, CLI support can be added in v0.2.1.
 
-- [ ] Unit tests for `MultiProgress` class (20 tests)
-- [ ] Concurrent safety tests (15 tests)
-- [ ] CLI integration tests (12 tests)
+#### Step 2.4: Add Tests ✅ (Partial - 28 tests)
 
-**Acceptance Criteria:**
+- [x] Unit tests for `MultiProgress` class (16 tests)
+- [x] Concurrent safety tests (7 tests)
+- [x] Edge case tests (5 tests)
+- [ ] CLI integration tests (12 tests) - deferred with CLI commands
+
+**Current Status:**
 - ✅ Can track multiple progress bars independently
-- ✅ Concurrent-safe across processes
-- ✅ CLI commands work as documented
-- ✅ 47 new tests added (total: 196 tests)
+- ✅ Concurrent-safe file-based state
+- ⏸️ CLI commands deferred to v0.2.1
+- ✅ 28 new tests added (total: 191 tests, was 163)
 
 ---
 
