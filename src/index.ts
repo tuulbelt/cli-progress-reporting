@@ -9,6 +9,7 @@ import { writeFileSync, readFileSync, unlinkSync, renameSync, existsSync, realpa
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { ProgressTracker as PT, type ProgressTrackerConfig } from './progress-tracker.js';
 
 /**
  * Progress state stored in file
@@ -420,6 +421,45 @@ export function formatProgress(state: ProgressState): string {
   const elapsedSeconds = Math.floor(elapsed / 1000);
 
   return `[${state.percentage}%] ${state.current}/${state.total} - ${state.message} (${elapsedSeconds}s)`;
+}
+
+// =============================================================================
+// Multi-API Design (v0.2.0)
+// =============================================================================
+
+export { ProgressTracker, type ProgressTrackerConfig } from './progress-tracker.js';
+export { ProgressBuilder } from './progress-builder.js';
+
+/**
+ * Create a new ProgressTracker instance
+ *
+ * This is the recommended factory function for creating progress trackers
+ * in the v0.2.0 API. It provides a simpler alternative to using `new ProgressTracker()`.
+ *
+ * @param config - Configuration for the progress tracker
+ * @returns A new ProgressTracker instance
+ *
+ * @example
+ * ```typescript
+ * // Direct configuration
+ * const tracker = createProgress({
+ *   total: 100,
+ *   message: 'Processing files'
+ * });
+ * tracker.update(50);
+ * tracker.done();
+ *
+ * // With options
+ * const tracker2 = createProgress({
+ *   total: 100,
+ *   message: 'Processing',
+ *   id: 'my-task',
+ *   filePath: '/tmp/progress.json'
+ * });
+ * ```
+ */
+export function createProgress(config: ProgressTrackerConfig): PT {
+  return new PT(config);
 }
 
 /**
