@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts test/progress-tracker.test.ts test/progress-builder.test.ts test/create-progress.test.ts test/multi-progress.test.ts",
+    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts test/progress-tracker.test.ts test/progress-builder.test.ts test/create-progress.test.ts test/multi-progress.test.ts test/templates.test.ts",
     "test:unit": "node --import tsx --test test/index.test.ts",
     "test:cli": "node --import tsx --test test/cli.test.ts",
     "test:filesystem": "node --import tsx --test test/filesystem.test.ts",

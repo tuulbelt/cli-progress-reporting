@@ -23,8 +23,8 @@ This document tracks the enhancement of cli-progress-reporting based on the Prop
 |-------------|----------|--------|
 | Multi-API Design | HIGH | ✅ Complete |
 | Concurrent Progress (MultiProgress) | HIGH | ✅ Complete (API only, CLI deferred) |
-| Template System | MEDIUM | 🔴 Not Started |
-| Streaming API | LOW | 🔴 Not Started |
+| Template System | MEDIUM | ✅ Complete |
+| Streaming API | LOW | 🔴 Not Started (deferred to v0.3.0) |
 | SPEC.md Documentation | HIGH | 🔴 Not Started |
 | Advanced Examples | HIGH | 🔴 Not Started |
 
@@ -259,48 +259,54 @@ const custom = createProgress({
 
 ### Implementation Steps
 
-#### Step 3.1: Create Template Engine
+#### Step 3.1: Create Template Engine ✅
 
-- [ ] Create `src/templates.ts`
-- [ ] Define `TemplateEngine` class with:
-  - `parse(template: string): ParsedTemplate`
-  - `render(state: ProgressState, template: ParsedTemplate): string`
-- [ ] Support variable substitution
-- [ ] Support custom formatters
+- [x] Create `src/templates.ts`
+- [x] Define `TemplateEngine` class with:
+  - `render(template: Template, state: ProgressState): string`
+  - Variable substitution ({{percentage}}, {{current}}, {{total}}, {{message}}, {{elapsed}}, {{spinner}}, {{bar}}, {{eta}})
+- [x] Support string and function templates
+- [x] `resetSpinner()`, `setSpinnerFrames()`, `setBarWidth()` methods
 
-#### Step 3.2: Built-in Templates
+#### Step 3.2: Built-in Templates ✅
 
-- [ ] Define `templates.bar` (progress bar)
-- [ ] Define `templates.spinner` (animated spinner)
-- [ ] Define `templates.percentage` (percentage only)
-- [ ] Define `templates.detailed` (current format)
-- [ ] Define `templates.minimal` (simple)
+- [x] Define `templates.bar` (progress bar: `[████░░░░] 50%`)
+- [x] Define `templates.spinner` (animated spinner: `⠋ Processing...`)
+- [x] Define `templates.percentage` (percentage only: `50%`)
+- [x] Define `templates.detailed` (detailed: `[50%] 50/100 - Processing (5s)`)
+- [x] Define `templates.minimal` (simple: `Processing 50%`)
+- [x] Define `templates.full` (full with ETA)
+- [x] Define `templates.spinnerProgress` (spinner + progress)
 
-#### Step 3.3: Spinner Animation
+#### Step 3.3: Spinner Animation ✅
 
-- [ ] Create spinner frames: `['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']`
-- [ ] Rotate frame on each update
-- [ ] Support configurable spinner sets
+- [x] Create 5 built-in spinner sets (dots, line, arrows, box, clock)
+- [x] Rotate frame on each render
+- [x] Support configurable spinner sets via `setSpinnerFrames()`
 
-#### Step 3.4: Progress Bar Rendering
+#### Step 3.4: Progress Bar Rendering ✅
 
-- [ ] Calculate bar width based on percentage
-- [ ] Use Unicode block characters: `█▓▒░`
-- [ ] Support configurable bar width
+- [x] Calculate bar width based on percentage
+- [x] Use Unicode block characters: `█` (filled) and `░` (empty)
+- [x] Support configurable bar width via constructor and `setBarWidth()`
 
-#### Step 3.5: Add Tests
+#### Step 3.5: Add Tests ✅ (48 tests - exceeded target!)
 
-- [ ] Template parsing tests (10 tests)
-- [ ] Template rendering tests (15 tests)
-- [ ] Built-in template tests (10 tests)
-- [ ] Custom template tests (8 tests)
+- [x] Template engine tests (18 tests)
+- [x] Spinner animation tests (3 tests)
+- [x] Progress bar rendering tests (5 tests)
+- [x] ETA calculation tests (3 tests)
+- [x] Built-in template tests (7 tests)
+- [x] Factory function tests (2 tests)
+- [x] Spinner set tests (5 tests)
+- [x] Edge cases and integration (5 tests)
 
 **Acceptance Criteria:**
 - ✅ Can use built-in templates
 - ✅ Can create custom templates
 - ✅ Spinner animates correctly
 - ✅ Progress bar renders correctly
-- ✅ 43 new tests added (total: 239 tests)
+- ✅ 48 new tests added (total: 239 tests, was 191)
 
 ---
 

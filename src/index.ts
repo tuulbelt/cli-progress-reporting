@@ -435,6 +435,14 @@ export {
   type MultiProgressTrackerConfig,
   type MultiProgressState,
 } from './multi-progress.js';
+export {
+  TemplateEngine,
+  templates,
+  spinners,
+  createTemplateEngine,
+  type Template,
+  type TemplateVariables,
+} from './templates.js';
 
 /**
  * Create a new ProgressTracker instance
