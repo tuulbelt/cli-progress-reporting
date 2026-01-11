@@ -3,13 +3,30 @@
 # CLI Progress Reporting / `prog`
 
 [![Tests](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml/badge.svg)](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml)
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
 ![Tests](https://img.shields.io/badge/tests-239%20passing-success)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Concurrent-safe progress reporting for CLI tools with customizable templates and fluent API.
+
+## What's New in v0.3.0
+
+🚀 **Improved CLI Experience:**
+
+- **🎯 Nested Command Structure** — Tracker ID comes first: `prog <id> <action>` instead of `prog <action> --id <id>`
+- **📋 Formal Specification** — Complete SPEC.md documenting all behavior and invariants
+- **🧹 Simplified Codebase** — Removed 195 lines of unnecessary backward compatibility code
+
+**Breaking Change:** CLI syntax has changed to a more intuitive nested structure. Update your scripts:
+```bash
+# Old (no longer supported)
+prog init --total 100 --id myproject
+
+# New
+prog myproject init 100
+```
 
 ## What's New in v0.2.0
 
@@ -231,24 +248,59 @@ finish('All files processed!', config);
 
 ### As a CLI
 
+The CLI uses a nested command structure where the tracker ID comes first:
+
+**Single Progress Tracker:**
 ```bash
-# Initialize progress
-prog init --total 100 --message "Processing files" --id myproject
+# Initialize progress (tracker-id first, then action)
+prog myproject init 100 --message "Processing files"
 
 # Increment progress
-prog increment --amount 5 --id myproject
+prog myproject inc 5 --message "Processing item 5"
 
 # Set absolute progress
-prog set --current 75 --message "Almost done" --id myproject
+prog myproject set 75 --message "Almost done"
 
-# Get current state
-prog get --id myproject
+# Get current state (returns JSON)
+prog myproject get
 
 # Mark as finished
-prog finish --message "Complete!" --id myproject
+prog myproject done "Complete!"
 
 # Clear progress file
-prog clear --id myproject
+prog myproject clear
+```
+
+**Multi-Progress Tracking:**
+```bash
+# Initialize multi-progress container
+prog multi builds init
+
+# Add individual trackers
+prog multi builds add frontend 50 --message "Building frontend"
+prog multi builds add backend 30 --message "Building backend"
+
+# Check status of all trackers
+prog multi builds status
+
+# Mark all as done
+prog multi builds done
+
+# Clear all
+prog multi builds clear
+```
+
+**Global Commands:**
+```bash
+# List all active trackers
+prog list
+
+# Show version
+prog version
+
+# Show help
+prog help
+prog help init      # Help for specific command
 ```
 
 ### In Shell Scripts
@@ -259,17 +311,45 @@ prog clear --id myproject
 TASK_ID="my-batch-job"
 TOTAL_FILES=$(ls data/*.csv | wc -l)
 
-# Initialize
-prog init --total $TOTAL_FILES --message "Processing CSV files" --id "$TASK_ID"
+# Initialize (new syntax: ID first, then action)
+prog "$TASK_ID" init "$TOTAL_FILES" --message "Processing CSV files"
 
 # Process files
 for file in data/*.csv; do
   process_file "$file"
-  prog increment --amount 1 --message "Processed $(basename $file)" --id "$TASK_ID"
+  prog "$TASK_ID" inc 1 --message "Processed $(basename $file)"
 done
 
 # Finish
-prog finish --message "All files processed" --id "$TASK_ID"
+prog "$TASK_ID" done "All files processed"
+
+# Clear when done
+prog "$TASK_ID" clear
+```
+
+**Multi-progress example:**
+```bash
+#!/bin/bash
+
+# Initialize multi-progress for parallel tasks
+prog multi deployment init
+
+# Start multiple sub-tasks
+prog multi deployment add database 5 --message "Migrating database"
+prog multi deployment add assets 20 --message "Compiling assets"
+prog multi deployment add services 10 --message "Deploying services"
+
+# Update individual trackers as tasks progress
+for i in {1..5}; do
+  migrate_database "$i"
+  prog multi deployment add database "$i"
+done
+
+# Check overall status
+prog multi deployment status
+
+# Clean up
+prog multi deployment clear
 ```
 
 ## API
