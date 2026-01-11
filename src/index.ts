@@ -429,6 +429,13 @@ export function formatProgress(state: ProgressState): string {
 
 export { ProgressTracker, type ProgressTrackerConfig } from './progress-tracker.js';
 export { ProgressBuilder } from './progress-builder.js';
+export { ProgressStream, createProgressStream, type ProgressStreamConfig } from './progress-stream.js';
+export {
+  ProgressTransform,
+  attachProgress,
+  isProgressTransform,
+  type StreamProgressConfig,
+} from './stream-wrapper.js';
 export {
   MultiProgress,
   type MultiProgressConfig,
