@@ -7,8 +7,7 @@
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { ParsedCommand, LegacyCommand } from './parser.js';
-import { getDeprecationWarning } from './parser.js';
+import type { ParsedCommand } from './parser.js';
 import { MultiProgress } from '../multi-progress.js';
 import type { Result } from '../index.js';
 import type { ProgressState, ProgressConfig } from '../index.js';
@@ -18,14 +17,6 @@ import { init, increment as incrementFn, set as setFn, finish as finishFn, get a
  * Execute a parsed command
  */
 export function executeCommand(command: ParsedCommand): void {
-  // Show deprecation warning for legacy commands
-  if (command.type === 'legacy') {
-    console.warn(getDeprecationWarning(command));
-    executeLegacyCommand(command);
-    return;
-  }
-
-  // Execute new nested commands
   switch (command.type) {
     case 'single':
       executeSingleCommand(command);
@@ -155,41 +146,6 @@ function executeGlobalCommand(command: Extract<ParsedCommand, { type: 'global' }
   }
 }
 
-/**
- * Execute legacy flat command
- */
-function executeLegacyCommand(command: LegacyCommand): void {
-  const config: ProgressConfig = { id: command.id };
-  let result: Result<ProgressState | void>;
-
-  switch (command.command) {
-    case 'init':
-      result = init(command.total, command.message, config);
-      break;
-
-    case 'increment':
-      result = incrementFn(command.amount || 1, command.message, config);
-      break;
-
-    case 'set':
-      result = setFn(command.current, command.message, config);
-      break;
-
-    case 'get':
-      result = getFn(config);
-      break;
-
-    case 'finish':
-      result = finishFn(command.message, config);
-      break;
-
-    case 'clear':
-      result = clearFn(config);
-      break;
-  }
-
-  handleResult(result);
-}
 
 /**
  * Handle command result and output

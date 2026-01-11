@@ -1,7 +1,5 @@
 /**
  * CLI Command Parser for Nested Command Structure
- *
- * Supports both new nested commands and legacy flat commands (with deprecation warnings).
  */
 
 // =============================================================================
@@ -38,20 +36,9 @@ export type GlobalCommand =
   | { type: 'global'; action: 'help'; command?: string };
 
 /**
- * Legacy flat commands (for backward compatibility)
- */
-export type LegacyCommand =
-  | { type: 'legacy'; command: 'init'; total: number; message: string; id?: string }
-  | { type: 'legacy'; command: 'increment'; amount?: number; message?: string; id?: string }
-  | { type: 'legacy'; command: 'set'; current: number; message?: string; id?: string }
-  | { type: 'legacy'; command: 'get'; id?: string }
-  | { type: 'legacy'; command: 'finish'; message?: string; id?: string }
-  | { type: 'legacy'; command: 'clear'; id?: string };
-
-/**
  * All possible parsed commands
  */
-export type ParsedCommand = SingleCommand | MultiCommand | GlobalCommand | LegacyCommand;
+export type ParsedCommand = SingleCommand | MultiCommand | GlobalCommand;
 
 /**
  * Parse result
@@ -91,11 +78,6 @@ export function parseCommand(args: string[]): ParseResult {
   // Multi-progress commands: prog multi <multi-id> <action>
   if (firstArg === 'multi') {
     return parseMultiCommand(args.slice(1));
-  }
-
-  // Check if this is a legacy flat command (--flag syntax)
-  if (isLegacyCommand(args)) {
-    return parseLegacyCommand(args);
   }
 
   // Single progress commands: prog <tracker-id> <action>
@@ -285,104 +267,6 @@ function parseMultiCommand(args: string[]): ParseResult {
 }
 
 /**
- * Parse legacy flat command (for backward compatibility)
- */
-function parseLegacyCommand(args: string[]): ParseResult {
-  const command = args[0] as 'init' | 'increment' | 'set' | 'get' | 'finish' | 'clear';
-  const flags = parseLegacyFlags(args.slice(1));
-
-  switch (command) {
-    case 'init':
-      if (flags.total === undefined || flags.message === undefined) {
-        return { ok: false, error: 'init requires --total and --message' };
-      }
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'init',
-          total: flags.total,
-          message: flags.message,
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    case 'increment':
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'increment',
-          ...(flags.amount !== undefined ? { amount: flags.amount } : {}),
-          ...(flags.message !== undefined ? { message: flags.message } : {}),
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    case 'set':
-      if (flags.current === undefined) {
-        return { ok: false, error: 'set requires --current' };
-      }
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'set',
-          current: flags.current,
-          ...(flags.message !== undefined ? { message: flags.message } : {}),
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    case 'get':
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'get',
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    case 'finish':
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'finish',
-          ...(flags.message !== undefined ? { message: flags.message } : {}),
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    case 'clear':
-      return {
-        ok: true,
-        command: {
-          type: 'legacy',
-          command: 'clear',
-          ...(flags.id !== undefined ? { id: flags.id } : {}),
-        },
-      };
-
-    default:
-      return { ok: false, error: `Unknown legacy command: ${command}` };
-  }
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Check if arguments represent a legacy flat command
- */
-function isLegacyCommand(args: string[]): boolean {
-  const legacyCommands = ['init', 'increment', 'set', 'get', 'finish', 'clear'];
-  return args.length > 0 && legacyCommands.includes(args[0]!) && args.some((arg) => arg.startsWith('--'));
-}
-
-/**
  * Validate that an ID is safe (alphanumeric, hyphens, underscores only)
  */
 function isValidId(id: string): boolean {
@@ -398,66 +282,4 @@ function parseFlag(args: string[], flag: string): string | undefined {
     return undefined;
   }
   return args[index + 1];
-}
-
-/**
- * Parse legacy flags (--flag value format)
- */
-function parseLegacyFlags(args: string[]): {
-  total?: number;
-  amount?: number;
-  current?: number;
-  message?: string;
-  id?: string;
-} {
-  const flags: ReturnType<typeof parseLegacyFlags> = {};
-
-  for (let i = 0; i < args.length; i += 2) {
-    const flag = args[i];
-    const value = args[i + 1];
-
-    if (!value) continue;
-
-    switch (flag) {
-      case '--total':
-        flags.total = parseInt(value, 10);
-        break;
-      case '--amount':
-        flags.amount = parseInt(value, 10);
-        break;
-      case '--current':
-        flags.current = parseInt(value, 10);
-        break;
-      case '--message':
-        flags.message = value;
-        break;
-      case '--id':
-        flags.id = value;
-        break;
-    }
-  }
-
-  return flags;
-}
-
-/**
- * Get deprecation warning for legacy command
- */
-export function getDeprecationWarning(command: LegacyCommand): string {
-  const id = command.id || 'default';
-
-  switch (command.command) {
-    case 'init':
-      return `⚠️  DEPRECATED: Use 'prog ${id} init ${command.total}${command.message ? ` --message "${command.message}"` : ''}' instead`;
-    case 'increment':
-      return `⚠️  DEPRECATED: Use 'prog ${id} inc${command.amount ? ` ${command.amount}` : ''}${command.message ? ` --message "${command.message}"` : ''}' instead`;
-    case 'set':
-      return `⚠️  DEPRECATED: Use 'prog ${id} set ${command.current}${command.message ? ` --message "${command.message}"` : ''}' instead`;
-    case 'get':
-      return `⚠️  DEPRECATED: Use 'prog ${id} get' instead`;
-    case 'finish':
-      return `⚠️  DEPRECATED: Use 'prog ${id} done${command.message ? ` "${command.message}"` : ''}' instead`;
-    case 'clear':
-      return `⚠️  DEPRECATED: Use 'prog ${id} clear' instead`;
-  }
 }
