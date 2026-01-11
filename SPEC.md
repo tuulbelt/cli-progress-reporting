@@ -1,467 +1,586 @@
-# CLI Progress Reporting Specification
+# CLI Progress Reporting - Formal Specification
 
-**Version:** 0.2.0
-**Date:** 2026-01-11
-**Status:** Stable
+**Version:** 0.3.0
+**Last Updated:** 2026-01-11
 
----
-
-## 1. Overview
-
-This document formally specifies the behavior, data formats, and guarantees of the CLI Progress Reporting tool. It serves as the authoritative reference for implementation correctness and compatibility.
-
-### 1.1 Design Goals
-
-- **Concurrent Safety:** Multiple processes can safely update the same progress tracker without corruption
-- **Persistence:** Progress state survives process crashes and restarts
-- **Atomicity:** State transitions are atomic - no partial writes visible to readers
-- **Zero Dependencies:** Uses only Node.js built-in modules
-- **Backward Compatibility:** API changes maintain compatibility with existing code
-
-### 1.2 Scope
-
-This specification covers:
-- Progress state data format
-- File-based storage format and atomicity guarantees
-- Template system variable substitution
-- CLI protocol and exit codes
-- Error handling patterns
+This document provides the formal specification for CLI Progress Reporting, documenting all behavior, formats, and guarantees.
 
 ---
 
-## 2. Progress State Format
+## Table of Contents
 
-### 2.1 JSON Schema
+1. [Progress State Format](#1-progress-state-format)
+2. [File Format Specification](#2-file-format-specification)
+3. [Concurrent Safety Guarantees](#3-concurrent-safety-guarantees)
+4. [Template System Specification](#4-template-system-specification)
+5. [Streaming API Specification](#5-streaming-api-specification)
+6. [CLI Protocol](#6-cli-protocol)
+7. [Error Handling](#7-error-handling)
 
-Progress state is represented as a JSON object with the following schema:
+---
+
+## 1. Progress State Format
+
+### 1.1 ProgressState Interface
+
+The `ProgressState` interface represents the complete state of a progress tracker at a point in time.
 
 ```typescript
 interface ProgressState {
-  total: number;           // Total units of work (positive integer > 0)
-  current: number;         // Current units completed (non-negative integer ≥ 0)
-  message: string;         // User-friendly message (arbitrary string)
-  percentage: number;      // Percentage complete (floating point 0.0-100.0)
-  startTime: number;       // Unix timestamp in milliseconds when initialized
-  updatedTime: number;     // Unix timestamp in milliseconds of last update
-  complete: boolean;       // Whether progress is marked as finished
+  /** Total units of work */
+  total: number;
+  
+  /** Current units completed */
+  current: number;
+  
+  /** User-friendly message describing progress */
+  message: string;
+  
+  /** Percentage complete (0-100) */
+  percentage: number;
+  
+  /** Timestamp when progress started (milliseconds since epoch) */
+  startTime: number;
+  
+  /** Timestamp of last update (milliseconds since epoch) */
+  updatedTime: number;
+  
+  /** Whether progress is complete */
+  complete: boolean;
 }
 ```
 
-### 2.2 Field Constraints
+### 1.2 Field Constraints
 
-#### `total`
-- **Type:** Positive integer
-- **Range:** `1` to `Number.MAX_SAFE_INTEGER` (2^53 - 1)
-- **Validation:** Must be greater than 0
-- **Immutable:** Cannot change after initialization
+| Field | Type | Range | Required | Description |
+|-------|------|-------|----------|-------------|
+| `total` | number | > 0 | Yes | Total units of work to complete |
+| `current` | number | 0 ≤ current ≤ total | Yes | Units completed so far |
+| `message` | string | - | Yes | Human-readable progress message |
+| `percentage` | number | 0-100 | Yes | Computed from current/total |
+| `startTime` | number | > 0 | Yes | Unix timestamp in milliseconds |
+| `updatedTime` | number | ≥ startTime | Yes | Unix timestamp in milliseconds |
+| `complete` | boolean | true/false | Yes | Whether progress is finished |
 
-#### `current`
-- **Type:** Non-negative integer
-- **Range:** `0` to `total` (inclusive)
-- **Clamping:** Values exceeding `total` are clamped to `total`
-- **Monotonicity:** Typically increases (decreases allowed via `set()`)
+### 1.3 Derived Values
 
-#### `message`
-- **Type:** String
-- **Length:** Unlimited (implementation may truncate in output)
-- **Encoding:** UTF-8
-- **Special characters:** Allowed (including newlines, Unicode)
+**Percentage Calculation:**
+```
+percentage = Math.round((current / total) * 100)
+```
 
-#### `percentage`
-- **Type:** Floating point number
-- **Range:** `0.0` to `100.0` (inclusive)
-- **Precision:** Implementation-defined (typically 2 decimal places)
-- **Calculation:** `(current / total) * 100`
-- **Special cases:**
-  - `current = 0` → `percentage = 0.0`
-  - `current = total` → `percentage = 100.0`
+**Elapsed Time (seconds):**
+```
+elapsed = Math.floor((updatedTime - startTime) / 1000)
+```
 
-#### `startTime`
-- **Type:** Integer (Unix timestamp in milliseconds)
-- **Source:** `Date.now()` at initialization
-- **Immutable:** Never changes after initialization
-- **Use case:** Calculate elapsed time
+**ETA (estimated time remaining, seconds):**
+```
+if (current === 0) {
+  eta = 0
+} else {
+  rate = current / elapsed
+  remaining = total - current
+  eta = Math.round(remaining / rate)
+}
+```
 
-#### `updatedTime`
-- **Type:** Integer (Unix timestamp in milliseconds)
-- **Source:** `Date.now()` at each operation
-- **Monotonicity:** Increases with each update
-- **Use case:** Track last modification time
+### 1.4 JSON Schema
 
-#### `complete`
-- **Type:** Boolean
-- **Semantics:**
-  - `false` - Progress in progress
-  - `true` - Progress marked as finished (via `finish()`)
-- **Independent of percentage:** Can be `true` even if `percentage < 100`
+```json
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "total": {
+      "type": "number",
+      "minimum": 1,
+      "description": "Total units of work"
+    },
+    "current": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Current units completed"
+    },
+    "message": {
+      "type": "string",
+      "description": "User-friendly progress message"
+    },
+    "percentage": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Percentage complete (0-100)"
+    },
+    "startTime": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Unix timestamp in milliseconds"
+    },
+    "updatedTime": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Unix timestamp in milliseconds"
+    },
+    "complete": {
+      "type": "boolean",
+      "description": "Whether progress is complete"
+    }
+  },
+  "required": ["total", "current", "message", "percentage", "startTime", "updatedTime", "complete"]
+}
+```
 
-### 2.3 Invariants
+---
 
-The following invariants MUST always hold:
+## 2. File Format Specification
 
-1. `0 ≤ current ≤ total`
-2. `total > 0`
-3. `percentage = (current / total) * 100`
-4. `startTime ≤ updatedTime`
-5. `typeof message === 'string'`
-6. `typeof complete === 'boolean'`
+### 2.1 Single Progress File Format
 
-### 2.4 Example State
+**File Pattern:**
+```
+progress-{id}.json
+```
 
+**Location:**
+- Default: `/tmp/progress-{id}.json`
+- Custom: User-specified via `filePath` option
+
+**Content Example:**
 ```json
 {
   "total": 100,
   "current": 42,
   "message": "Processing files",
-  "percentage": 42.0,
-  "startTime": 1704988800000,
-  "updatedTime": 1704988842000,
+  "percentage": 42,
+  "startTime": 1704931200000,
+  "updatedTime": 1704931242000,
   "complete": false
 }
 ```
 
----
+**Encoding:** UTF-8
 
-## 3. File Format Specification
+**Formatting:** Pretty-printed with 2-space indentation (for human readability)
 
-### 3.1 Single Progress Tracker
+**File Permissions:** `0o644` (rw-r--r--)
 
-**Filename Pattern:** `progress-{id}.json`
+### 2.2 Multi-Progress File Format
 
-**Location:** OS temp directory (`os.tmpdir()`)
-
-**Format:** UTF-8 encoded JSON
-
-**Example:**
+**File Pattern:**
 ```
-/tmp/progress-myproject.json
+progress-multi-{multiProgressId}.json
 ```
 
-**Contents:**
+**Content Example:**
 ```json
 {
-  "total": 100,
-  "current": 50,
-  "message": "Processing items",
-  "percentage": 50.0,
-  "startTime": 1704988800000,
-  "updatedTime": 1704988825000,
-  "complete": false
-}
-```
-
-### 3.2 Multi-Progress Tracker
-
-**Filename Pattern:** `progress-multi-{id}.json`
-
-**Format:** UTF-8 encoded JSON with nested tracker states
-
-**Example:**
-```
-/tmp/progress-multi-myproject.json
-```
-
-**Contents:**
-```json
-{
-  "download": {
-    "total": 50,
-    "current": 25,
-    "message": "Downloading files",
-    "percentage": 50.0,
-    "startTime": 1704988800000,
-    "updatedTime": 1704988812000,
-    "complete": false
-  },
-  "upload": {
-    "total": 30,
-    "current": 30,
-    "message": "Upload complete",
-    "percentage": 100.0,
-    "startTime": 1704988800000,
-    "updatedTime": 1704988825000,
-    "complete": true
+  "trackers": {
+    "download": {
+      "total": 1000,
+      "current": 450,
+      "message": "Downloading files",
+      "percentage": 45,
+      "startTime": 1704931200000,
+      "updatedTime": 1704931242000,
+      "complete": false
+    },
+    "process": {
+      "total": 500,
+      "current": 100,
+      "message": "Processing data",
+      "percentage": 20,
+      "startTime": 1704931250000,
+      "updatedTime": 1704931260000,
+      "complete": false
+    }
   }
 }
 ```
 
-### 3.3 File Permissions
+**Root Structure:**
+- `trackers`: Object mapping tracker IDs to ProgressState objects
 
-**Mode:** `0o644` (read/write owner, read-only group/others)
+### 2.3 Atomic Write Algorithm
 
-**Rationale:** Progress data is intended to be shared across processes
+To ensure concurrent safety, all writes follow this algorithm:
 
-**Security:** Do NOT include sensitive data in messages or tracker IDs
-
-### 3.4 Atomic Write Algorithm
-
-To prevent partial writes and ensure concurrent safety, the implementation MUST use the following algorithm:
-
-```
-1. Generate temporary filename: `progress-{id}.json.tmp.{random}`
-   where {random} is a cryptographically secure random string
-
-2. Write complete JSON to temporary file
-
-3. Call fsync() to flush to disk (optional but recommended)
-
-4. Atomically rename temporary file to target filename:
-   fs.renameSync(tempFile, targetFile)
-
-5. OS guarantees rename is atomic - readers see either:
-   - Old complete state (before rename)
-   - New complete state (after rename)
-   - NEVER partial/corrupted state
-```
-
-**Implementation Example:**
+**Step 1: Generate temp file path**
 ```typescript
-function atomicWrite(filepath: string, data: ProgressState): void {
-  const tempPath = `${filepath}.tmp.${randomBytes(8).toString('hex')}`;
-
-  // Write to temp file
-  writeFileSync(tempPath, JSON.stringify(data, null, 2), 'utf-8');
-
-  // Atomic rename (overwrites target if exists)
-  renameSync(tempPath, filepath);
-
-  // Readers only ever see complete, valid JSON
-}
+const tempPath = join(tmpdir(), `progress-${randomBytes(8).toString('hex')}.tmp`);
 ```
 
-### 3.5 Read Operations
-
-**Read Algorithm:**
-```
-1. Open file for reading
-2. Read entire file contents
-3. Parse JSON
-4. Validate against ProgressState schema
-5. Return parsed state
+**Step 2: Write to temp file**
+```typescript
+writeFileSync(tempPath, json, { encoding: 'utf-8', mode: 0o644 });
 ```
 
-**Error Handling:**
-- File not found → Return error (progress not initialized)
-- JSON parse error → Return error (corrupted state - should never happen with atomic writes)
-- Schema validation fails → Return error (implementation bug)
-
----
-
-## 4. Concurrent Safety Guarantees
-
-### 4.1 Atomicity Guarantee
-
-**Guarantee:** All state transitions are atomic from external observers' perspective.
-
-**Implementation:** File system atomic rename operation (`fs.renameSync()`)
-
-**OS-Level Support:**
-- POSIX: `rename(2)` is atomic
-- Windows: `MoveFileEx()` with `MOVEFILE_REPLACE_EXISTING` is atomic
-- Node.js: `fs.renameSync()` uses OS atomic rename
-
-### 4.2 Concurrent Write Safety
-
-**Scenario:** Multiple processes writing to same tracker simultaneously
-
-**Behavior:**
-- Last write wins (most recent `renameSync()` determines final state)
-- No data corruption (atomic rename prevents partial writes)
-- No race condition (OS ensures rename atomicity)
-
-**Example:**
-```
-Process A: increment(1) at T1 → writes current=50
-Process B: increment(1) at T2 → writes current=51
-Process C: increment(1) at T3 → writes current=52
-
-Final state: current=52 (last write wins)
+**Step 3: Atomic rename**
+```typescript
+renameSync(tempPath, finalPath);
 ```
 
-**Note:** Increments are NOT additive across processes. Use separate tracker IDs for independent progress tracking.
+**Properties Guaranteed:**
+- Readers never see partial writes (rename is atomic at OS level)
+- Multiple writers don't corrupt files (OS serializes renames)
+- Failures leave previous state intact (temp file is orphaned)
 
-### 4.3 Concurrent Read Safety
+**Diagram:**
 
-**Scenario:** Multiple processes reading while another process writes
-
-**Behavior:**
-- Readers ALWAYS see complete, valid JSON (never partial writes)
-- Readers see either old state OR new state (never transitional state)
-- No read locks required
-
-**Example:**
 ```
-Writer:  [old state] → [writing to temp] → [rename] → [new state]
-Reader:  [reads old state]                            [reads new state]
-           ↑ Sees complete old state                   ↑ Sees complete new state
+Writer Process A        Writer Process B        Reader Process C
+─────────────────      ─────────────────      ─────────────────
+                                               
+1. Write to            1. Write to             
+   temp-abc.tmp           temp-xyz.tmp         
+                                               
+2. Rename              (waiting)               
+   temp-abc.tmp →                             
+   progress.json                              
+                                               
+                       2. Rename               3. Read
+                          temp-xyz.tmp →          progress.json
+                          progress.json           (sees B's data)
+                                               
+                       ✓ No corruption!        ✓ Never partial!
 ```
 
-### 4.4 Multi-Tracker Independence
+### 2.4 Cleanup Policy
 
-**Guarantee:** Different tracker IDs are completely independent.
+**Automatic Cleanup:**
+- Single progress: Files deleted via `clear()` method
+- Multi-progress: Individual trackers removed via `remove(trackerId)`
+- Orphaned temp files: User responsibility (OS typically cleans `/tmp` on reboot)
 
-**Behavior:**
-- Updates to `tracker-A` do NOT affect `tracker-B`
-- Separate files eliminate contention
-- No global locks
+**Manual Cleanup:**
+```bash
+# Remove all progress files
+rm -f /tmp/progress-*.json
 
-**Example:**
-```
-Tracker "download":  progress-download.json
-Tracker "upload":    progress-upload.json
-Tracker "process":   progress-process.json
-
-All can be updated concurrently with zero interference.
+# Remove orphaned temp files
+find /tmp -name "progress-*.tmp" -mtime +1 -delete
 ```
 
 ---
 
-## 5. Template System Specification
+## 3. Concurrent Safety Guarantees
 
-### 5.1 Template Syntax
+### 3.1 Multi-Process Safety
 
-Templates support variable substitution using double-brace syntax: `{{variable}}`
+**Guarantee:** Multiple processes can safely update the same progress tracker without file corruption.
 
-**Valid Variable Names:**
-```
-{{percentage}}   - Percentage complete (0-100)
-{{current}}      - Current value
-{{total}}        - Total value
-{{message}}      - User message
-{{elapsed}}      - Elapsed seconds since start
-{{spinner}}      - Animated spinner character
-{{bar}}          - Progress bar string
-{{eta}}          - Estimated time remaining (seconds)
-```
+**How It Works:**
+1. Each update writes to a unique temp file
+2. Atomic `rename()` ensures only complete states are visible
+3. OS-level rename serialization prevents race conditions
 
-### 5.2 Variable Substitution Algorithm
+**Example Scenario:**
 
 ```
-For each variable in template:
-  1. Match pattern: /\{\{(\w+)\}\}/g
-  2. Extract variable name
-  3. Lookup value in TemplateVariables object
-  4. Convert value to string
-  5. Replace {{variable}} with string value
+Process A                    Process B
+─────────                    ─────────
+read: current = 10           read: current = 10
+compute: current + 1 = 11    compute: current + 1 = 11
+write temp-abc.tmp           write temp-xyz.tmp
+rename → progress.json       (waiting for A's rename to complete)
+                             rename → progress.json
+                             
+Final state: current = 11 ✓
+(Last writer wins, no corruption)
 ```
 
-**Example:**
-```
-Template: "{{spinner}} {{percentage}}% - {{message}}"
-State:    { percentage: 42, message: "Processing", spinner: "⠋" }
-Result:   "⠋ 42% - Processing"
-```
+### 3.2 Read Operations
 
-### 5.3 Template Variables Type Specification
+**Guarantee:** Read operations never see partial writes or corrupted data.
 
-```typescript
-interface TemplateVariables {
-  percentage: number;      // 0.0 to 100.0
-  current: number;         // 0 to total
-  total: number;           // Positive integer
-  message: string;         // Arbitrary string
-  elapsed: number;         // Seconds since start (integer)
-  spinner: string;         // Single character (Unicode)
-  bar: string;             // Progress bar visualization
-  eta: number;             // Estimated seconds remaining (integer, 0 if unknown)
-}
-```
-
-### 5.4 ETA Calculation
-
-**Formula:**
-```typescript
-if (current === 0 || elapsed === 0) {
-  eta = 0;  // Unknown
-} else {
-  const rate = current / elapsed;           // Items per second
-  const remaining = total - current;        // Items left
-  eta = Math.ceil(remaining / rate);        // Seconds remaining
-}
-```
+**Mechanism:**
+- Readers use `readFileSync()` which is atomic for files <4KB (typical for progress state)
+- Rename operations are atomic at kernel level
+- Readers either see old state or new state, never mid-transition
 
 **Edge Cases:**
-- `current = 0` → `eta = 0` (no data yet)
-- `elapsed = 0` → `eta = 0` (too fast to measure)
-- `current = total` → `eta = 0` (complete)
 
-### 5.5 Progress Bar Rendering
+| Scenario | Read Result | Notes |
+|----------|-------------|-------|
+| Read during write to temp | Previous state | Temp file not visible |
+| Read during rename | Previous or new state | Depends on timing, both valid |
+| Read after rename | New state | Always consistent |
+| File deleted mid-read | Error (ENOENT) | Caller handles via Result type |
 
-**Algorithm:**
-```typescript
-function renderBar(percentage: number, width: number): string {
-  const filled = Math.round((percentage / 100) * width);
-  const empty = width - filled;
-  const filledBar = '█'.repeat(filled);
-  const emptyBar = '░'.repeat(empty);
-  return `[${filledBar}${emptyBar}]`;
-}
+### 3.3 Lock-Free Design
+
+**No Locks Used:**
+- No file locks (flock, lockf)
+- No mutex/semaphore primitives
+- No busy-waiting
+
+**Why Lock-Free:**
+- Avoids deadlock scenarios
+- No lock acquisition overhead
+- Works across networked filesystems (NFS, CIFS)
+- Survives process crashes (no orphaned locks)
+
+**Trade-off:**
+- Last writer wins (may lose increments if two processes increment simultaneously)
+- For precise counting, use single writer pattern or external coordination
+
+---
+
+## 4. Template System Specification
+
+### 4.1 Template Variable Syntax
+
+Templates support variable substitution using `{{variable}}` syntax.
+
+**Grammar:**
 ```
-
-**Characters:**
-- Filled: `█` (U+2588 FULL BLOCK)
-- Empty: `░` (U+2591 LIGHT SHADE)
+template     := (text | variable)*
+variable     := "{{" identifier "}}"
+identifier   := [a-zA-Z_][a-zA-Z0-9_]*
+text         := any characters except "{{"
+```
 
 **Example:**
 ```
-renderBar(50, 10)  → "[█████░░░░░]"
-renderBar(75, 20)  → "[███████████████░░░░░]"
-renderBar(0, 5)    → "[░░░░░]"
-renderBar(100, 5)  → "[█████]"
+"{{message}}: {{current}}/{{total}} ({{percentage}}%)"
+→
+"Processing files: 42/100 (42%)"
 ```
 
-### 5.6 Spinner Animation
+### 4.2 Supported Variables
 
-**Frame Rotation:**
+| Variable | Type | Description | Example |
+|----------|------|-------------|---------|
+| `percentage` | number | Completion percentage (0-100) | `42` |
+| `current` | number | Current progress value | `42` |
+| `total` | number | Total work units | `100` |
+| `message` | string | User-provided message | `"Processing files"` |
+| `elapsed` | number | Elapsed seconds | `120` |
+| `eta` | number | Estimated seconds remaining | `180` |
+| `spinner` | string | Animated spinner character | `⠋` |
+| `bar` | string | Progress bar visualization | `████████░░` |
+
+### 4.3 Built-in Templates
+
+**Percentage Template:**
 ```typescript
-class TemplateEngine {
-  private spinnerFrame: number = 0;
-
-  getSpinner(): string {
-    const frame = this.spinnerFrames[this.spinnerFrame] || '·';
-    this.spinnerFrame = (this.spinnerFrame + 1) % this.spinnerFrames.length;
-    return frame;
-  }
-}
+"{{percentage}}%"
+// Output: "42%"
 ```
 
-**Built-in Spinner Sets:**
-
+**Bar Template:**
 ```typescript
-const spinners = {
-  dots: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],  // 10 frames
-  line: ['|', '/', '-', '\\'],                                  // 4 frames
-  arrows: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'],            // 8 frames
-  box: ['◰', '◳', '◲', '◱'],                                    // 4 frames
-  clock: ['🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛']  // 12 frames
-};
+"{{bar}} {{percentage}}%"
+// Output: "████████░░░░░░░░░░░░ 42%"
 ```
 
-### 5.7 Function Templates
+**Spinner Template:**
+```typescript
+"{{spinner}} {{message}}"
+// Output: "⠋ Processing files"
+```
 
-Templates can be strings OR functions:
+**Minimal Template:**
+```typescript
+"{{current}}/{{total}}"
+// Output: "42/100"
+```
+
+**Detailed Template:**
+```typescript
+"{{message}}: {{current}}/{{total}} ({{percentage}}%) [{{elapsed}}s elapsed, {{eta}}s remaining]"
+// Output: "Processing files: 42/100 (42%) [120s elapsed, 180s remaining]"
+```
+
+### 4.4 Function Templates
+
+Templates can also be functions for full customization:
 
 ```typescript
 type Template = string | ((vars: TemplateVariables) => string);
+
+const customTemplate = (vars: TemplateVariables) => {
+  const color = vars.percentage < 50 ? 'red' : 'green';
+  return `[${color}] ${vars.message}: ${vars.percentage}%`;
+};
 ```
 
-**Function Template Signature:**
+### 4.5 Spinner Frame Rotation
+
+**Frame Sets:**
 ```typescript
-function customTemplate(vars: TemplateVariables): string {
-  // Custom logic
-  return `${vars.percentage}% complete`;
+const spinners = {
+  dots: ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'],
+  line: ['|', '/', '-', '\\'],
+  arrows: ['←', '↖', '↑', '↗', '→', '↘', '↓', '↙'],
+  box: ['◰', '◳', '◲', '◱'],
+  clock: ['🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛'],
+};
+```
+
+**Rotation Algorithm:**
+```typescript
+class TemplateEngine {
+  private spinnerFrame: number = 0;
+  private spinnerFrames: readonly string[] = spinners.dots;
+
+  getSpinnerChar(): string {
+    const char = this.spinnerFrames[this.spinnerFrame];
+    this.spinnerFrame = (this.spinnerFrame + 1) % this.spinnerFrames.length;
+    return char;
+  }
 }
 ```
 
-**Example:**
+**Usage:**
 ```typescript
-const template = (vars) => {
-  const eta = vars.eta > 0 ? ` (ETA: ${vars.eta}s)` : '';
-  return `${vars.bar} ${vars.percentage}%${eta}`;
-};
+const engine = new TemplateEngine({ spinnerFrames: spinners.line });
 
-engine.render(template, state);
-// "[████░░░░] 50% (ETA: 30s)"
+engine.render('{{spinner}}', state); // "|"
+engine.render('{{spinner}}', state); // "/"
+engine.render('{{spinner}}', state); // "-"
+engine.render('{{spinner}}', state); // "\\"
+engine.render('{{spinner}}', state); // "|" (wraps)
+```
+
+### 4.6 Progress Bar Rendering
+
+**Algorithm:**
+```typescript
+function renderBar(percentage: number, width: number = 20): string {
+  const filled = Math.round((percentage / 100) * width);
+  const empty = width - filled;
+  return '█'.repeat(filled) + '░'.repeat(empty);
+}
+```
+
+**Examples:**
+```
+percentage = 0,   width = 20: "░░░░░░░░░░░░░░░░░░░░"
+percentage = 25,  width = 20: "█████░░░░░░░░░░░░░░░"
+percentage = 50,  width = 20: "██████████░░░░░░░░░░"
+percentage = 100, width = 20: "████████████████████"
+```
+
+---
+
+## 5. Streaming API Specification
+
+### 5.1 ProgressStream - Async Iterator Protocol
+
+**Interface:**
+```typescript
+class ProgressStream implements AsyncIterableIterator<ProgressState> {
+  async next(): Promise<IteratorResult<ProgressState>>;
+  async return(value?: ProgressState): Promise<IteratorResult<ProgressState>>;
+  async throw(error?: unknown): Promise<IteratorResult<ProgressState>>;
+  [Symbol.asyncIterator](): AsyncIterableIterator<ProgressState>;
+}
+```
+
+**Behavior:**
+
+| Method | Behavior | Returns |
+|--------|----------|---------|
+| `next()` | Increments progress by `incrementAmount` | `{ done: false, value: ProgressState }` |
+| `return()` | Marks progress as complete | `{ done: true, value?: ProgressState }` |
+| `throw(err)` | Marks progress as failed, then throws | Never returns (throws) |
+| `[Symbol.asyncIterator]()` | Returns self | `this` |
+
+**State Transitions:**
+```
+[Created] → next() → [Active] → next() → ... → return() → [Done]
+                         ↓
+                     throw(err) → [Failed + thrown]
+```
+
+**For-Await-Of Support:**
+```typescript
+async function* processItems() {
+  const stream = new ProgressStream({
+    total: 10,
+    message: 'Processing',
+    id: 'task-1',
+  });
+
+  for (let i = 0; i < 10; i++) {
+    const result = await stream.next();
+    if (!result.done && result.value) {
+      yield result.value; // Yield ProgressState
+    }
+  }
+
+  await stream.return();
+}
+
+// Consumer
+for await (const state of processItems()) {
+  console.log(`Progress: ${state.percentage}%`);
+}
+```
+
+### 5.2 ProgressTransform - Node.js Stream Integration
+
+**Interface:**
+```typescript
+class ProgressTransform extends Transform {
+  constructor(config: StreamProgressConfig);
+  getProgress(): ProgressState;
+  
+  // Events
+  on(event: 'progress', listener: (state: ProgressState) => void): this;
+}
+```
+
+**Behavior:**
+
+| Event | When Emitted | Payload |
+|-------|-------------|---------|
+| `'progress'` | After each chunk (if updateInterval allows) | `ProgressState` |
+| `'finish'` | When stream ends | (none) |
+| `'error'` | On processing error | `Error` |
+
+**Update Throttling:**
+```typescript
+interface StreamProgressConfig {
+  total: number;
+  message: string;
+  id: string;
+  updateInterval?: number; // Bytes between progress events (0 = every chunk)
+}
+```
+
+**Algorithm:**
+```typescript
+_transform(chunk, encoding, callback) {
+  bytesProcessed += chunkSize;
+  
+  if (updateInterval === 0 || (bytesProcessed - lastEmitted) >= updateInterval) {
+    tracker.update(bytesProcessed);
+    emit('progress', state);
+    lastEmitted = bytesProcessed;
+  }
+  
+  callback(null, chunk); // Pass through
+}
+```
+
+**Example Pipeline:**
+```typescript
+const readStream = createReadStream('large-file.txt');
+const progressStream = new ProgressTransform({
+  total: fileSize,
+  message: 'Reading file',
+  id: 'file-read',
+  updateInterval: 1024 * 1024, // Emit every 1MB
+});
+const writeStream = createWriteStream('output.txt');
+
+progressStream.on('progress', (state) => {
+  console.log(`Read ${state.percentage}%`);
+});
+
+await pipeline(readStream, progressStream, writeStream);
 ```
 
 ---
@@ -470,98 +589,81 @@ engine.render(template, state);
 
 ### 6.1 Command Structure
 
-**Format:** `prog <command> [options] [arguments]`
+**General Format:**
+```
+prog <command> [options] [arguments]
+```
 
 **Commands:**
-```
-prog init --total <N> --message <msg> [--id <id>]
-prog increment [--amount <N>] [--message <msg>] [--id <id>]
-prog set --current <N> [--message <msg>] [--id <id>]
-prog get [--id <id>]
-prog finish [--message <msg>] [--id <id>]
-prog clear [--id <id>]
-prog help [<command>]
-prog version
-```
+
+| Command | Arguments | Description |
+|---------|-----------|-------------|
+| `init` | `--total <n>` `--message <msg>` `--id <id>` | Initialize new progress tracker |
+| `increment` | `[amount]` `--id <id>` `[--message <msg>]` | Increment progress |
+| `update` | `<value>` `--id <id>` `[--message <msg>]` | Set progress to specific value |
+| `done` | `--id <id>` `[--message <msg>]` | Mark progress complete |
+| `get` | `--id <id>` | Get current progress state |
+| `clear` | `--id <id>` | Clear progress file |
+| `status` | `--id <id>` | Get multi-progress status |
+| `list` | - | List all active progress trackers |
+| `version` | - | Show version information |
+| `help` | - | Show help information |
 
 ### 6.2 Exit Codes
 
 | Code | Meaning | When Used |
 |------|---------|-----------|
-| `0` | Success | Operation completed successfully |
-| `1` | Error | Invalid arguments, operation failed, or validation error |
+| `0` | Success | Command completed successfully |
+| `1` | Error | Any error (invalid args, file I/O failure, etc.) |
 
-**Examples:**
-```bash
-prog init --total 100 --message "Test"  # Exit 0 (success)
-prog init --total 0 --message "Test"    # Exit 1 (total must be > 0)
-prog get --id nonexistent               # Exit 1 (tracker not found)
-```
+**No other exit codes are used.**
 
 ### 6.3 Output Format
 
-#### Success (JSON)
+**Stdout:**
+- JSON format by default
+- Human-readable format with `--format text` (future)
+- Empty on success for mutating commands (init, increment, update, done, clear)
+- JSON object on success for query commands (get, status)
 
-When operation succeeds, output valid JSON to stdout:
+**Stderr:**
+- Error messages only
+- Format: `Error: <message>`
+- Includes usage hint: `Run "prog help" for usage information`
 
-```json
-{
-  "ok": true,
-  "value": {
-    "total": 100,
-    "current": 50,
-    "message": "Processing",
-    "percentage": 50.0,
-    "startTime": 1704988800000,
-    "updatedTime": 1704988825000,
-    "complete": false
-  }
-}
+**Example Success (get):**
+```bash
+$ prog get --id my-task
+{"total":100,"current":42,"message":"Processing","percentage":42,"startTime":1704931200000,"updatedTime":1704931242000,"complete":false}
 ```
 
-#### Error (JSON)
-
-When operation fails, output error JSON to stdout (NOT stderr):
-
-```json
-{
-  "ok": false,
-  "error": "Total must be greater than 0"
-}
+**Example Error:**
+```bash
+$ prog get --id nonexistent
+Error: Failed to read progress: ENOENT: no such file or directory
+Run "prog help" for usage information
 ```
 
-**Rationale:** Using stdout for both success and error allows piping to JSON processors like `jq`.
+### 6.4 Environment Variables
 
-### 6.4 Human-Readable Output
-
-**Flag:** `--format human` (future enhancement)
-
-**Current Behavior:** Use `formatProgress()` function in library API
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `PROGRESS_DIR` | string | `/tmp` | Directory for progress files |
 
 **Example:**
 ```bash
-prog get --id myproject
-# Output: [50%] 50/100 - Processing (25s)
+export PROGRESS_DIR=/var/run/progress
+prog init --total 100 --message "Task" --id my-task
+# Creates: /var/run/progress/progress-my-task.json
 ```
-
-### 6.5 Environment Variables
-
-**Supported Variables:**
-
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `PROG_ID` | Default tracker ID | `export PROG_ID=myproject` |
-| `PROG_DIR` | Custom temp directory | `export PROG_DIR=/var/run/progress` |
-
-**Precedence:** CLI flags > Environment variables > Defaults
 
 ---
 
 ## 7. Error Handling
 
-### 7.1 Result Type
+### 7.1 Result Type Specification
 
-All library operations return a `Result<T>` type:
+All fallible operations return a `Result<T>` type:
 
 ```typescript
 type Result<T> =
@@ -569,218 +671,134 @@ type Result<T> =
   | { ok: false; error: string };
 ```
 
-**Rationale:** Explicit error handling, no exceptions thrown.
+**Properties:**
+- Discriminated union (check `ok` field)
+- No exceptions thrown (errors returned as values)
+- Error messages are human-readable strings
+
+**Usage Pattern:**
+```typescript
+const result = progress.increment(1);
+if (!result.ok) {
+  console.error(result.error);
+  return;
+}
+const state = result.value;
+console.log(`Progress: ${state.percentage}%`);
+```
 
 ### 7.2 Error Categories
 
-#### Validation Errors
+| Category | Example Error | Cause | Recovery |
+|----------|--------------|-------|----------|
+| **Validation** | `"Total must be a valid number greater than 0"` | Invalid input | Fix input, retry |
+| **File I/O** | `"Failed to read progress: ENOENT"` | File missing/unreadable | Check file exists |
+| **JSON Parse** | `"Failed to parse progress state: Unexpected token"` | Corrupted file | Delete and recreate |
+| **State** | `"Cannot increment: progress already complete"` | Operation after completion | Check `complete` flag |
+| **Concurrency** | `"Failed to write progress: EAGAIN"` | Transient OS error | Retry after delay |
 
-Triggered by invalid inputs:
+### 7.3 Error Message Format
 
-```typescript
-{ ok: false, error: "Total must be greater than 0" }
-{ ok: false, error: "Increment amount must be non-negative" }
-{ ok: false, error: "Invalid tracker ID: contains path traversal" }
+**Structure:**
 ```
-
-#### State Errors
-
-Triggered by invalid operations:
-
-```typescript
-{ ok: false, error: "Progress file does not exist" }
-{ ok: false, error: "Tracker ID 'foo' not found in multi-progress" }
+"<Operation failed>: <specific reason>"
 ```
-
-#### I/O Errors
-
-Triggered by filesystem failures:
-
-```typescript
-{ ok: false, error: "Failed to write progress: EACCES permission denied" }
-{ ok: false, error: "Failed to read progress: ENOENT file not found" }
-```
-
-### 7.3 Error Recovery
-
-**Strategy:** All operations are idempotent where possible.
 
 **Examples:**
-- `init()` twice → Overwrites previous state (safe)
-- `clear()` on non-existent file → Returns success (idempotent)
-- `increment()` on non-existent tracker → Returns error (not idempotent)
-
-### 7.4 Security Validation
-
-#### Tracker ID Validation
-
-**Rules:**
-- Alphanumeric characters, hyphens, underscores only: `/^[a-zA-Z0-9_-]+$/`
-- Max length: 255 characters
-- No path traversal: Reject `..`, `/`, `\`, null bytes
-
-**Example:**
 ```typescript
-// Valid IDs
-"myproject"
-"task-123"
-"worker_node_5"
-
-// Invalid IDs (rejected)
-"../etc/passwd"      // Path traversal
-"my/project"         // Slash
-"task\x00file"       // Null byte
-"a".repeat(300)      // Too long
+"Failed to write progress: ENOENT: no such file or directory"
+"Failed to increment: Total must be greater than 0"
+"Failed to parse progress state: Unexpected token < in JSON at position 0"
 ```
 
-#### Message Content
+### 7.4 Error Recovery Strategies
 
-**Allowed:** Any valid UTF-8 string (no restrictions)
-
-**Warning:** Messages are stored in world-readable files (`0o644`). Do NOT include:
-- Passwords or API keys
-- Personal identifiable information (PII)
-- Sensitive business data
-
----
-
-## 8. Versioning and Compatibility
-
-### 8.1 Semantic Versioning
-
-This specification follows [Semantic Versioning 2.0.0](https://semver.org/):
-
-- **MAJOR:** Breaking changes to file format or API
-- **MINOR:** Backward-compatible feature additions
-- **PATCH:** Backward-compatible bug fixes
-
-### 8.2 File Format Compatibility
-
-**Guarantee:** JSON file format for v0.x.x remains stable.
-
-**Forward Compatibility:** New fields MAY be added in MINOR versions. Old implementations MUST ignore unknown fields.
-
-**Example:**
-```json
-{
-  "total": 100,
-  "current": 50,
-  "message": "Processing",
-  "percentage": 50.0,
-  "startTime": 1704988800000,
-  "updatedTime": 1704988825000,
-  "complete": false,
-  "newFieldInV0_3": "value"  // Old parsers ignore this
+**For Transient Errors (I/O):**
+```typescript
+function writeWithRetry(data: ProgressState, retries = 3): Result<void> {
+  for (let i = 0; i < retries; i++) {
+    const result = writeFn(data);
+    if (result.ok) return result;
+    if (i < retries - 1) {
+      await sleep(100 * Math.pow(2, i)); // Exponential backoff
+    }
+  }
+  return { ok: false, error: 'Failed after 3 retries' };
 }
 ```
 
-### 8.3 API Compatibility
+**For Corrupted Files:**
+```typescript
+const readResult = progress.get();
+if (!readResult.ok && readResult.error.includes('parse')) {
+  // Corrupted file - reinitialize
+  progress.clear();
+  progress = createProgress({ total: 100, message: 'Restarted', id });
+}
+```
 
-**Guarantee:** Existing API methods remain available through v0.x.x
-
-**Deprecation Policy:**
-1. New API introduced in MINOR version
-2. Old API marked deprecated (warning in docs)
-3. Old API removed in MAJOR version (v1.0.0+)
-
-**Current APIs (v0.2.0):**
-- Functional API (v0.1.0) - Stable
-- ProgressTracker (v0.2.0) - Stable
-- ProgressBuilder (v0.2.0) - Stable
-- MultiProgress (v0.2.0) - Stable
-- TemplateEngine (v0.2.0) - Stable
+**For State Errors:**
+```typescript
+const result = progress.increment(1);
+if (!result.ok && result.error.includes('already complete')) {
+  // Progress already done - ignore or log
+  console.warn('Progress already complete, skipping increment');
+  return;
+}
+```
 
 ---
 
-## 9. Implementation Requirements
+## Appendix A: Performance Characteristics
 
-### 9.1 Runtime Dependencies
+See `benchmarks/README.md` for full performance analysis.
 
-**Requirement:** ZERO runtime dependencies.
+**Summary (v0.3.0):**
 
-**Allowed:** Node.js built-in modules only
-- `fs` (file system)
-- `path` (path manipulation)
-- `os` (OS utilities)
-- `crypto` (random bytes for temp files)
+| Operation | Latency | Throughput |
+|-----------|---------|------------|
+| Single increment + write | ~1.5 ms | 650 ops/sec |
+| Template rendering | <2 µs | 500K+ ops/sec |
+| Multi-progress (10 trackers) | ~11 ms | 90 ops/sec |
+| Stream processing | ~630 µs/chunk | 1600 chunks/sec |
 
-**Forbidden:** Any npm package dependencies at runtime
+---
 
-### 9.2 Platform Support
-
-**Supported Platforms:**
-- Linux (POSIX)
-- macOS (POSIX)
-- Windows (Win32)
+## Appendix B: Compatibility
 
 **Node.js Versions:**
-- Minimum: 18.0.0
-- Tested: 18, 20, 22
+- Minimum: Node.js 18.0.0 (LTS)
+- Tested: Node.js 18, 20, 22
+- ES Modules required (`"type": "module"`)
 
-### 9.3 Test Coverage
+**Filesystem Requirements:**
+- POSIX-compliant filesystem (Linux, macOS, WSL)
+- Atomic `rename()` support (standard on all POSIX systems)
+- NFS/CIFS: Works with caveats (atomicity depends on server implementation)
 
-**Requirement:** Minimum 80% code coverage
-
-**Current:** 239 tests covering:
-- Functional API (35 tests)
-- CLI integration (28 tests)
-- Filesystem edge cases (21 tests)
-- Fuzzy property tests (32 tests)
-- ProgressTracker (28 tests)
-- ProgressBuilder (17 tests)
-- MultiProgress (23 tests)
-- Template system (48 tests)
-- Security validation (7 tests)
-
-### 9.4 Performance Targets
-
-**Single Operation:**
-- `init()` - < 2ms
-- `increment()` - < 2ms
-- `get()` - < 1ms
-- `finish()` - < 2ms
-
-**Template Rendering:**
-- Simple template - < 0.5ms
-- Complex template with bar - < 1ms
-
-**Multi-Progress:**
-- 10 trackers - < 5ms total
+**TypeScript:**
+- Minimum: TypeScript 5.0
+- Target: ES2022
+- Strict mode recommended
 
 ---
 
-## 10. References
+## Appendix C: Changelog
 
-### 10.1 Standards
+**v0.3.0 (2026-01-11):**
+- Added Streaming API (ProgressStream, ProgressTransform)
+- Added CLI nested commands (increment, update, done, get, clear, status)
+- Added formal specification (this document)
+- Added performance benchmarks
 
-- [RFC 8259: JSON Data Interchange Format](https://tools.ietf.org/html/rfc8259)
-- [POSIX rename(2)](https://pubs.opengroup.org/onlinepubs/9699919799/functions/rename.html)
-- [Semantic Versioning 2.0.0](https://semver.org/)
+**v0.2.0:**
+- Added MultiProgress support
+- Added template system
+- Added builder pattern
 
-### 10.2 Related Specifications
-
-- [Property Validator SPEC.md](https://github.com/tuulbelt/property-validator/blob/main/SPEC.md) - Gold standard example
-- [Node.js File System API](https://nodejs.org/api/fs.html)
-- [Unicode Block Elements](https://unicode.org/charts/PDF/U2580.pdf) - Progress bar characters
-
----
-
-## 11. Changelog
-
-### v0.2.0 (2026-01-11)
-
-- Initial specification release
-- Documented all v0.2.0 behavior:
-  - Progress state format
-  - File format and atomic writes
-  - Concurrent safety guarantees
-  - Template system
-  - CLI protocol
-  - Error handling
+**v0.1.0:**
+- Initial release with basic progress tracking
 
 ---
 
-**Specification Version:** 1.0.0
-**Last Updated:** 2026-01-11
-**Maintained By:** Tuulbelt Core Team
-**License:** MIT
+**End of Specification**
