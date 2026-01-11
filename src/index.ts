@@ -476,153 +476,30 @@ export function createProgress(config: ProgressTrackerConfig): PT {
   return new PT(config);
 }
 
-/**
- * Parse command line arguments
- */
-function parseArgs(args: string[]): {
-  command: 'init' | 'increment' | 'set' | 'get' | 'finish' | 'clear';
-  total?: number;
-  amount?: number;
-  current?: number;
-  message?: string;
-  id?: string;
-} | { command: 'help' } {
-  if (args.length === 0 || args.includes('--help') || args.includes('-h')) {
-    return { command: 'help' };
-  }
-
-  const command = args[0] as 'init' | 'increment' | 'set' | 'get' | 'finish' | 'clear';
-  const result: ReturnType<typeof parseArgs> = { command } as ReturnType<typeof parseArgs>;
-
-  for (let i = 1; i < args.length; i += 2) {
-    const flag = args[i];
-    const value = args[i + 1];
-
-    if (!value) continue; // Skip if no value provided
-
-    switch (flag) {
-      case '--total':
-        (result as { total?: number }).total = parseInt(value, 10);
-        break;
-      case '--amount':
-        (result as { amount?: number }).amount = parseInt(value, 10);
-        break;
-      case '--current':
-        (result as { current?: number }).current = parseInt(value, 10);
-        break;
-      case '--message':
-        (result as { message?: string }).message = value;
-        break;
-      case '--id':
-        (result as { id?: string }).id = value;
-        break;
-    }
-  }
-
-  return result;
-}
-
 // CLI entry point - only runs when executed directly
 function main(): void {
-  const args = globalThis.process?.argv?.slice(2) ?? [];
-  const parsed = parseArgs(args);
+  // Import CLI parser and executor
+  import('./cli/parser.js').then((parser) => {
+    import('./cli/executor.js').then((executor) => {
+      const args = globalThis.process?.argv?.slice(2) ?? [];
+      const parseResult = parser.parseCommand(args);
 
-  if (parsed.command === 'help') {
-    console.log(`Usage: cli-progress-reporting <command> [options]
-
-Commands:
-  init       Initialize progress tracking
-  increment  Increment progress by amount (default: 1)
-  set        Set progress to absolute value
-  get        Get current progress state
-  finish     Mark progress as complete
-  clear      Clear progress file
-
-Options:
-  --total <n>      Total units of work (for init)
-  --amount <n>     Amount to increment (for increment, default: 1)
-  --current <n>    Current progress value (for set)
-  --message <msg>  Progress message
-  --id <id>        Progress tracker ID (default: 'default')
-
-Examples:
-  # Initialize progress
-  cli-progress-reporting init --total 100 --message "Processing files"
-
-  # Increment progress
-  cli-progress-reporting increment --amount 1 --id myproject
-
-  # Get current state
-  cli-progress-reporting get --id myproject
-
-  # Finish progress
-  cli-progress-reporting finish --message "Done!" --id myproject`);
-    return;
-  }
-
-  const config: ProgressConfig = {};
-  if ('id' in parsed && parsed.id) {
-    config.id = parsed.id;
-  }
-
-  let result: Result<ProgressState | void>;
-
-  switch (parsed.command) {
-    case 'init':
-      if (!('total' in parsed) || parsed.total === undefined || !('message' in parsed) || !parsed.message) {
-        console.error('Error: init requires --total and --message');
+      if (!parseResult.ok) {
+        console.error(`Error: ${parseResult.error}`);
+        console.error('Run "prog help" for usage information');
         globalThis.process?.exit(1);
         return;
       }
-      result = init(parsed.total, parsed.message, config);
-      break;
 
-    case 'increment':
-      const amount = 'amount' in parsed && parsed.amount ? parsed.amount : 1;
-      const incrementMsg = 'message' in parsed ? parsed.message : undefined;
-      result = increment(amount, incrementMsg, config);
-      break;
-
-    case 'set':
-      if (!('current' in parsed) || parsed.current === undefined) {
-        console.error('Error: set requires --current');
-        globalThis.process?.exit(1);
-        return;
-      }
-      const setMsg = 'message' in parsed ? parsed.message : undefined;
-      result = set(parsed.current, setMsg, config);
-      break;
-
-    case 'get':
-      result = get(config);
-      break;
-
-    case 'finish':
-      const finishMsg = 'message' in parsed ? parsed.message : undefined;
-      result = finish(finishMsg, config);
-      break;
-
-    case 'clear':
-      result = clear(config);
-      break;
-
-    default:
-      console.error(`Error: Unknown command '${(parsed as { command: string }).command}'`);
-      console.error('Run with --help for usage information');
+      executor.executeCommand(parseResult.command);
+    }).catch((err) => {
+      console.error('Failed to load CLI executor:', err);
       globalThis.process?.exit(1);
-      return;
-  }
-
-  if (result.ok) {
-    if (result.value) {
-      console.log(JSON.stringify(result.value, null, 2));
-    } else {
-      console.log('Success');
-    }
-  } else {
-    console.error(`Error: ${result.error}`);
+    });
+  }).catch((err) => {
+    console.error('Failed to load CLI parser:', err);
     globalThis.process?.exit(1);
-  }
+  });
 }
 
 // Check if this module is being run directly
