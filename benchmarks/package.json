@@ -1,0 +1,13 @@
+{
+  "name": "@tuulbelt/cli-progress-reporting-benchmarks",
+  "version": "0.3.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bench": "node --import tsx index.bench.ts"
+  },
+  "devDependencies": {
+    "tatami-ng": "^0.8.18",
+    "tsx": "^4.19.2"
+  }
+}
