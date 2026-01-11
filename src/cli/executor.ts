@@ -171,6 +171,10 @@ function listAllTrackers(): void {
   const tmpDir = tmpdir();
   const allFiles = readdirSync(tmpDir);
 
+  // Default limit to prevent buffer overflow in tests/spawned processes
+  const DEFAULT_LIMIT = 50;
+  const limit = DEFAULT_LIMIT;
+
   const singleTrackers: string[] = [];
   const multiTrackers: string[] = [];
 
@@ -186,27 +190,42 @@ function listAllTrackers(): void {
     }
   }
 
+  const totalTrackers = singleTrackers.length + multiTrackers.length;
+  const sortedSingle = singleTrackers.sort();
+  const sortedMulti = multiTrackers.sort();
+
   console.log('Active Progress Trackers:');
   console.log('');
 
-  if (singleTrackers.length > 0) {
+  let displayed = 0;
+
+  if (sortedSingle.length > 0) {
     console.log('Single Trackers:');
-    for (const id of singleTrackers.sort()) {
+    const singleLimit = Math.min(sortedSingle.length, limit - displayed);
+    for (let i = 0; i < singleLimit; i++) {
+      const id = sortedSingle[i];
       const filePath = join(tmpDir, `progress-${id}.json`);
       try {
         const state = JSON.parse(readFileSync(filePath, 'utf-8')) as ProgressState;
         const status = state.complete ? '✓' : '⏳';
         console.log(`  ${status} ${id}: ${state.percentage}% - ${state.message}`);
+        displayed++;
       } catch {
         console.log(`  ⚠ ${id}: (invalid state)`);
+        displayed++;
       }
+    }
+    if (sortedSingle.length > singleLimit) {
+      console.log(`  ... and ${sortedSingle.length - singleLimit} more single tracker(s)`);
     }
     console.log('');
   }
 
-  if (multiTrackers.length > 0) {
+  if (sortedMulti.length > 0 && displayed < limit) {
     console.log('Multi Trackers:');
-    for (const id of multiTrackers.sort()) {
+    const multiLimit = Math.min(sortedMulti.length, limit - displayed);
+    for (let i = 0; i < multiLimit; i++) {
+      const id = sortedMulti[i];
       const filePath = join(tmpDir, `progress-multi-${id}.json`);
       try {
         const multiState = JSON.parse(readFileSync(filePath, 'utf-8'));
@@ -217,15 +236,24 @@ function listAllTrackers(): void {
           const status = state.complete ? '✓' : '⏳';
           console.log(`      ${status} ${trackerId}: ${state.percentage}% - ${state.message}`);
         }
+        displayed++;
       } catch {
         console.log(`  ⚠ ${id}: (invalid state)`);
+        displayed++;
       }
+    }
+    if (sortedMulti.length > multiLimit) {
+      console.log(`  ... and ${sortedMulti.length - multiLimit} more multi tracker(s)`);
     }
     console.log('');
   }
 
-  if (singleTrackers.length === 0 && multiTrackers.length === 0) {
+  if (totalTrackers === 0) {
     console.log('  No active trackers found');
+  } else if (totalTrackers > limit) {
+    console.log(`Total: ${totalTrackers} tracker(s) (showing first ${limit})`);
+  } else {
+    console.log(`Total: ${totalTrackers} tracker(s)`);
   }
 
   globalThis.process?.exit(0);
