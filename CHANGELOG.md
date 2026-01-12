@@ -7,19 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- Initial project scaffolding
-- TypeScript configuration with strict mode
-- Node.js native test runner setup
-- Basic project structure
-
-## [0.1.0] - YYYY-MM-DD (Not Released)
+## [0.3.0] - 2026-01-12
 
 ### Added
-- Core functionality (TODO: describe main features)
-- Comprehensive test suite
-- API documentation
-- Usage examples
+- **Streaming API**: Native async generator support with `ProgressStream` for async iterables
+- **ProgressTransform**: Node.js Transform stream with automatic progress tracking
+- **attachProgress helper**: Utility to attach progress tracking to existing readable streams
+- **Nested CLI structure**: More intuitive command syntax `prog <id> <action>` instead of `prog <action> --id <id>`
+- **SPEC.md**: Formal specification documenting all behavior, algorithms, and invariants
+- **Advanced examples**: 4 comprehensive real-world examples:
+  - Concurrent file downloads with parallel tracking
+  - Build pipeline with multi-stage progress
+  - Streaming data processing with backpressure
+  - Multi-service deployment orchestration
+- **Performance benchmarks**: Statistical benchmarking with tatami-ng (criterion-equivalent rigor)
+- **Buffer overflow protection**: List command now limits output to 50 trackers to prevent ENOBUFS errors
+
+### Changed
+- **BREAKING**: CLI command structure changed from `prog <action> --id <id>` to `prog <id> <action>`
+  - Old: `prog init --total 100 --id myproject`
+  - New: `prog myproject init 100`
+- Test suite expanded from 239 to 264 tests (10.5% increase)
+- Improved error messages and validation
+
+### Removed
+- 195 lines of unnecessary backward compatibility code
+- Legacy command parsing logic
+
+### Fixed
+- Buffer overflow (ENOBUFS) when listing thousands of progress trackers
+- CLI executor now properly limits output to prevent stdout buffer overflow in spawned processes
+
+### Implementation Notes
+- Zero runtime dependencies maintained
+- Uses Node.js built-in modules only
+- TypeScript with strict type checking
+- All 264 tests passing with zero flaky tests
+
+## [0.1.0] - 2025-12-XX
+
+### Added
+- Core progress tracking functionality (functional API)
+- Object-oriented API with `ProgressTracker` class
+- Builder pattern API with `ProgressBuilder`
+- Multi-progress tracking with `MultiProgress`
+- CLI tool for shell script integration
+- Template system with built-in progress bar templates
+- Comprehensive test suite (239 tests)
+- API documentation and examples
 
 ### Implementation Notes
 - Zero runtime dependencies
