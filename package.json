@@ -1,6 +1,6 @@
 {
   "name": "@tuulbelt/cli-progress-reporting",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Concurrent-safe progress reporting for CLI tools",
   "main": "src/index.ts",
   "type": "module",
