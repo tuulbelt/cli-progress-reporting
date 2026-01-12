@@ -6,17 +6,21 @@
 ![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
-![Tests](https://img.shields.io/badge/tests-239%20passing-success)
+![Tests](https://img.shields.io/badge/tests-264%20passing-success)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 Concurrent-safe progress reporting for CLI tools with customizable templates and fluent API.
 
 ## What's New in v0.3.0
 
-🚀 **Improved CLI Experience:**
+🚀 **Major Feature Release:**
 
-- **🎯 Nested Command Structure** — Tracker ID comes first: `prog <id> <action>` instead of `prog <action> --id <id>`
-- **📋 Formal Specification** — Complete SPEC.md documenting all behavior and invariants
+- **🌊 Streaming API** — Native async generator support with `ProgressStream` and `ProgressTransform` for Node.js streams
+- **🎯 Nested Command Structure** — More intuitive CLI: `prog <id> <action>` instead of `prog <action> --id <id>`
+- **📋 Formal Specification** — Complete SPEC.md documenting all behavior, algorithms, and invariants
+- **📚 Advanced Examples** — 4 comprehensive examples: concurrent downloads, build pipeline, streaming data, multi-service deployment
+- **⚡ Performance Benchmarks** — Statistical benchmarking with tatami-ng (criterion-equivalent rigor)
+- **🛡️ Buffer Overflow Protection** — List command limits output to prevent ENOBUFS errors
 - **🧹 Simplified Codebase** — Removed 195 lines of unnecessary backward compatibility code
 
 **Breaking Change:** CLI syntax has changed to a more intuitive nested structure. Update your scripts:
@@ -27,6 +31,8 @@ prog init --total 100 --id myproject
 # New
 prog myproject init 100
 ```
+
+**Test Coverage:** Expanded from 239 to 264 tests (10.5% increase) with zero flaky tests.
 
 ## What's New in v0.2.0
 
@@ -172,6 +178,83 @@ uploads.finish('Uploads complete!');
 
 // Clear all
 multi.clearAll();
+```
+
+### Streaming API (v0.3.0)
+
+Track progress while processing async iterables or Node.js streams:
+
+**ProgressStream (Async Generator):**
+
+```typescript
+import { ProgressStream } from './src/index.js';
+
+// Create a progress-tracked async generator
+const stream = new ProgressStream({
+  total: 100,
+  message: 'Processing items',
+  id: 'stream-task',
+  incrementAmount: 1,
+});
+
+// Iterate with automatic progress tracking
+for await (const item of stream) {
+  // Process each item (0-99)
+  await processItem(item);
+  // Progress auto-increments after each iteration
+}
+
+// Stream automatically marks complete when done
+```
+
+**ProgressTransform (Node.js Streams):**
+
+```typescript
+import { ProgressTransform } from './src/index.js';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+
+// Create a transform stream with progress tracking
+const progressTransform = new ProgressTransform({
+  total: fileSize,
+  message: 'Copying file',
+  id: 'file-copy',
+  updateInterval: 100, // Update every 100 bytes
+});
+
+// Use in pipeline
+await pipeline(
+  createReadStream('input.dat'),
+  progressTransform,
+  createWriteStream('output.dat')
+);
+
+console.log('File copied:', progressTransform.getProgress());
+```
+
+**Streaming with attachProgress helper:**
+
+```typescript
+import { attachProgress } from './src/index.js';
+import { createReadStream } from 'node:fs';
+
+// Attach progress tracking to any readable stream
+const fileStream = createReadStream('large-file.bin');
+const progressStream = attachProgress(fileStream, {
+  total: fileSize,
+  message: 'Reading file',
+  id: 'file-read',
+});
+
+// Monitor progress while streaming
+progressStream.on('data', (chunk) => {
+  // Process data
+});
+
+progressStream.on('end', () => {
+  const progress = progressStream.getProgress();
+  console.log(`Read complete: ${progress.percentage}%`);
+});
 ```
 
 ### Custom Templates
