@@ -6,7 +6,8 @@
 
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { ParsedCommand } from './parser.js';
 import { MultiProgress } from '../multi-progress.js';
 import type { Result } from '../index.js';
@@ -265,7 +266,8 @@ function listAllTrackers(): void {
 function showVersion(): void {
   // Read version from package.json
   try {
-    const packageJsonPath = join(import.meta.dirname, '../../package.json');
+    const currentFilePath = fileURLToPath(import.meta.url);
+    const packageJsonPath = join(dirname(currentFilePath), '../../package.json');
     if (existsSync(packageJsonPath)) {
       const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
       console.log(`CLI Progress Reporting v${packageJson.version}`);
