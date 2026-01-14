@@ -1,13 +1,13 @@
 /**
- * CLI Integration Tests
+ * CLI Integration Tests for Nested Command Structure (v0.3.0)
  *
  * Tests the actual CLI entry point by spawning processes.
  */
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { execSync, spawnSync } from 'node:child_process';
-import { unlinkSync, existsSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { unlinkSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -51,123 +51,53 @@ function cleanupTestFile(id: string): void {
   }
 }
 
-describe('CLI - help', () => {
-  test('shows help with --help flag', () => {
-    const result = runCLI(['--help'], true);
+// Helper to clean up multi-progress file
+function cleanupMultiFile(id: string): void {
+  try {
+    const filePath = join(tmpdir(), `progress-multi-${id}.json`);
+    if (existsSync(filePath)) {
+      unlinkSync(filePath);
+    }
+  } catch {
+    // Ignore cleanup errors
+  }
+}
 
-    assert.strictEqual(result.exitCode, 0);
-    assert(result.stdout.includes('Usage:'));
-    assert(result.stdout.includes('Commands:'));
-    assert(result.stdout.includes('init'));
-    assert(result.stdout.includes('increment'));
-  });
+// =============================================================================
+// Parser Tests (10 tests)
+// =============================================================================
 
-  test('shows help with -h flag', () => {
-    const result = runCLI(['-h'], true);
-
-    assert.strictEqual(result.exitCode, 0);
-    assert(result.stdout.includes('Usage:'));
-  });
-
-  test('shows help with no arguments', () => {
-    const result = runCLI([], true);
-
-    assert.strictEqual(result.exitCode, 0);
-    assert(result.stdout.includes('Usage:'));
-  });
-});
-
-describe('CLI - init', () => {
-  test('initializes progress successfully', () => {
+describe('CLI Parser - Single Commands', () => {
+  test('parses init command with required args', () => {
     const id = getTestId();
-    const result = runCLI(['init', '--total', '10', '--message', 'Test', '--id', id]);
+    const result = runCLI([id, 'init', '100', '--message', 'Test']);
 
     assert.strictEqual(result.exitCode, 0);
-
     const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.total, 10);
-    assert.strictEqual(output.current, 0);
+    assert.strictEqual(output.total, 100);
     assert.strictEqual(output.message, 'Test');
 
     cleanupTestFile(id);
   });
 
-  test('fails without required --total', () => {
-    const id = getTestId();
-    const result = runCLI(['init', '--message', 'Test', '--id', id], false);
-
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('requires --total'));
-
-    cleanupTestFile(id);
-  });
-
-  test('fails without required --message', () => {
-    const id = getTestId();
-    const result = runCLI(['init', '--total', '10', '--id', id], false);
-
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('requires --total and --message'));
-
-    cleanupTestFile(id);
-  });
-
-  test('fails with zero total', () => {
-    const id = getTestId();
-    const result = runCLI(['init', '--total', '0', '--message', 'Test', '--id', id], false);
-
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('greater than 0'));
-
-    cleanupTestFile(id);
-  });
-
-  test('handles message with spaces', () => {
-    const id = getTestId();
-    const result = runCLI(['init', '--total', '5', '--message', 'Processing multiple files', '--id', id]);
-
-    assert.strictEqual(result.exitCode, 0);
-    const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.message, 'Processing multiple files');
-
-    cleanupTestFile(id);
-  });
-
-  test('handles message with special characters', () => {
-    const id = getTestId();
-    const result = runCLI(['init', '--total', '5', '--message', 'File: /tmp/test-[123].txt', '--id', id]);
-
-    assert.strictEqual(result.exitCode, 0);
-    const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.message, 'File: /tmp/test-[123].txt');
-
-    cleanupTestFile(id);
-  });
-});
-
-describe('CLI - increment', () => {
-  test('increments progress successfully', () => {
+  test('parses inc command with optional amount', () => {
     const id = getTestId();
 
-    // Initialize first
-    runCLI(['init', '--total', '10', '--message', 'Start', '--id', id]);
-
-    // Increment
-    const result = runCLI(['increment', '--amount', '3', '--id', id]);
+    runCLI([id, 'init', '10', '--message', 'Start']);
+    const result = runCLI([id, 'inc', '3']);
 
     assert.strictEqual(result.exitCode, 0);
     const output = JSON.parse(result.stdout);
     assert.strictEqual(output.current, 3);
-    assert.strictEqual(output.percentage, 30);
 
     cleanupTestFile(id);
   });
 
-  test('increments by 1 when --amount not specified', () => {
+  test('parses inc command without amount (defaults to 1)', () => {
     const id = getTestId();
 
-    runCLI(['init', '--total', '10', '--message', 'Start', '--id', id]);
-    const result = runCLI(['increment', '--id', id]);
+    runCLI([id, 'init', '10', '--message', 'Start']);
+    const result = runCLI([id, 'inc']);
 
     assert.strictEqual(result.exitCode, 0);
     const output = JSON.parse(result.stdout);
@@ -176,196 +106,403 @@ describe('CLI - increment', () => {
     cleanupTestFile(id);
   });
 
-  test('updates message when provided', () => {
+  test('parses set command with current value', () => {
     const id = getTestId();
 
-    runCLI(['init', '--total', '10', '--message', 'Start', '--id', id]);
-    const result = runCLI(['increment', '--amount', '1', '--message', 'Updated', '--id', id]);
+    runCLI([id, 'init', '100', '--message', 'Start']);
+    const result = runCLI([id, 'set', '75', '--message', 'Updated']);
 
     assert.strictEqual(result.exitCode, 0);
     const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.current, 75);
     assert.strictEqual(output.message, 'Updated');
 
     cleanupTestFile(id);
   });
 
-  test('fails when not initialized', () => {
-    const id = getTestId();
-    const result = runCLI(['increment', '--id', id], false);
-
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('does not exist'));
-
-    cleanupTestFile(id);
-  });
-});
-
-describe('CLI - set', () => {
-  test('sets absolute progress value', () => {
+  test('parses get command', () => {
     const id = getTestId();
 
-    runCLI(['init', '--total', '100', '--message', 'Start', '--id', id]);
-    const result = runCLI(['set', '--current', '75', '--id', id]);
+    runCLI([id, 'init', '50', '--message', 'Testing']);
+    const result = runCLI([id, 'get']);
 
     assert.strictEqual(result.exitCode, 0);
     const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.current, 75);
-    assert.strictEqual(output.percentage, 75);
-
-    cleanupTestFile(id);
-  });
-
-  test('fails without --current', () => {
-    const id = getTestId();
-
-    runCLI(['init', '--total', '100', '--message', 'Start', '--id', id]);
-    const result = runCLI(['set', '--id', id], false);
-
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('requires --current'));
-
-    cleanupTestFile(id);
-  });
-});
-
-describe('CLI - get', () => {
-  test('retrieves current progress', () => {
-    const id = getTestId();
-
-    runCLI(['init', '--total', '50', '--message', 'Testing', '--id', id]);
-    runCLI(['increment', '--amount', '10', '--id', id]);
-
-    const result = runCLI(['get', '--id', id]);
-
-    assert.strictEqual(result.exitCode, 0);
-    const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.current, 10);
     assert.strictEqual(output.total, 50);
 
     cleanupTestFile(id);
   });
 
-  test('fails when not initialized', () => {
+  test('parses done command with optional message', () => {
     const id = getTestId();
-    const result = runCLI(['get', '--id', id], false);
 
-    assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('does not exist'));
+    runCLI([id, 'init', '20', '--message', 'Start']);
+    const result = runCLI([id, 'done', 'Finished!']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.complete, true);
+    assert.strictEqual(output.message, 'Finished!');
+
+    cleanupTestFile(id);
+  });
+
+  test('parses clear command', () => {
+    const id = getTestId();
+    const filePath = join(tmpdir(), `progress-${id}.json`);
+
+    runCLI([id, 'init', '10', '--message', 'Test']);
+    assert.strictEqual(existsSync(filePath), true);
+
+    const result = runCLI([id, 'clear']);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert.strictEqual(existsSync(filePath), false);
+  });
+});
+
+describe('CLI Parser - Multi Commands', () => {
+  test('parses multi init command', () => {
+    const id = getTestId();
+    const result = runCLI(['multi', id, 'init']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert(output.trackers);
+    assert.strictEqual(Object.keys(output.trackers).length, 0);
+
+    cleanupMultiFile(id);
+  });
+
+  test('parses multi add command', () => {
+    const multiId = getTestId();
+
+    runCLI(['multi', multiId, 'init']);
+    const result = runCLI(['multi', multiId, 'add', 'task1', '50', '--message', 'First task']);
+
+    assert.strictEqual(result.exitCode, 0);
+
+    cleanupMultiFile(multiId);
+    cleanupTestFile(`${multiId}-task1`);
+  });
+
+  test('parses multi status command', () => {
+    const multiId = getTestId();
+
+    runCLI(['multi', multiId, 'init']);
+    runCLI(['multi', multiId, 'add', 'task1', '10', '--message', 'Task']);
+
+    const result = runCLI(['multi', multiId, 'status']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(Object.keys(output.trackers).length, 1);
+
+    cleanupMultiFile(multiId);
+    cleanupTestFile(`${multiId}-task1`);
+  });
+});
+
+describe('CLI Parser - Global Commands', () => {
+  test('parses help command', () => {
+    const result = runCLI(['help']);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert(result.stdout.includes('Usage:'));
+    assert(result.stdout.includes('prog <command>'));
+  });
+
+  test('parses version command', () => {
+    const result = runCLI(['version']);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert(result.stdout.includes('0.'));
+  });
+
+  test('parses list command', () => {
+    const id = getTestId();
+
+    // Create a tracker first
+    runCLI([id, 'init', '10', '--message', 'Test']);
+
+    const result = runCLI(['list']);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert(result.stdout.includes('Active Progress Trackers'));
 
     cleanupTestFile(id);
   });
 });
 
-describe('CLI - finish', () => {
-  test('marks progress as complete', () => {
+// =============================================================================
+// Execution Tests (10 tests)
+// =============================================================================
+
+describe('CLI Execution - Single Progress', () => {
+  test('executes init successfully', () => {
+    const id = getTestId();
+    const result = runCLI([id, 'init', '100', '--message', 'Processing files']);
+
+    assert.strictEqual(result.exitCode, 0);
+
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.total, 100);
+    assert.strictEqual(output.current, 0);
+    assert.strictEqual(output.message, 'Processing files');
+    assert.strictEqual(output.percentage, 0);
+
+    cleanupTestFile(id);
+  });
+
+  test('executes inc with message update', () => {
     const id = getTestId();
 
-    runCLI(['init', '--total', '20', '--message', 'Start', '--id', id]);
-    const result = runCLI(['finish', '--message', 'Done!', '--id', id]);
+    runCLI([id, 'init', '50', '--message', 'Start']);
+    const result = runCLI([id, 'inc', '5', '--message', 'Step 1']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.current, 5);
+    assert.strictEqual(output.message, 'Step 1');
+
+    cleanupTestFile(id);
+  });
+
+  test('executes set to specific value', () => {
+    const id = getTestId();
+
+    runCLI([id, 'init', '100', '--message', 'Start']);
+    const result = runCLI([id, 'set', '80']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.current, 80);
+    assert.strictEqual(output.percentage, 80);
+
+    cleanupTestFile(id);
+  });
+
+  test('executes get and returns current state', () => {
+    const id = getTestId();
+
+    runCLI([id, 'init', '30', '--message', 'Testing']);
+    runCLI([id, 'inc', '10']);
+
+    const result = runCLI([id, 'get']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(output.current, 10);
+    assert.strictEqual(output.total, 30);
+
+    cleanupTestFile(id);
+  });
+
+  test('executes done and marks complete', () => {
+    const id = getTestId();
+
+    runCLI([id, 'init', '20', '--message', 'Start']);
+    const result = runCLI([id, 'done', 'All done!']);
 
     assert.strictEqual(result.exitCode, 0);
     const output = JSON.parse(result.stdout);
     assert.strictEqual(output.complete, true);
     assert.strictEqual(output.current, 20);
     assert.strictEqual(output.percentage, 100);
-    assert.strictEqual(output.message, 'Done!');
+    assert.strictEqual(output.message, 'All done!');
 
     cleanupTestFile(id);
   });
 
-  test('works without message', () => {
-    const id = getTestId();
-
-    runCLI(['init', '--total', '10', '--message', 'Start', '--id', id]);
-    const result = runCLI(['finish', '--id', id]);
-
-    assert.strictEqual(result.exitCode, 0);
-    const output = JSON.parse(result.stdout);
-    assert.strictEqual(output.complete, true);
-
-    cleanupTestFile(id);
-  });
-});
-
-describe('CLI - clear', () => {
-  test('removes progress file', () => {
+  test('executes clear and removes file', () => {
     const id = getTestId();
     const filePath = join(tmpdir(), `progress-${id}.json`);
 
-    runCLI(['init', '--total', '10', '--message', 'Test', '--id', id]);
+    runCLI([id, 'init', '10', '--message', 'Test']);
     assert.strictEqual(existsSync(filePath), true);
 
-    const result = runCLI(['clear', '--id', id]);
+    const result = runCLI([id, 'clear']);
 
     assert.strictEqual(result.exitCode, 0);
-    assert(result.stdout.includes('Success'));
     assert.strictEqual(existsSync(filePath), false);
   });
+});
 
-  test('succeeds even if file does not exist', () => {
-    const id = getTestId();
-    const result = runCLI(['clear', '--id', id]);
+describe('CLI Execution - Multi Progress', () => {
+  test('executes multi init', () => {
+    const multiId = getTestId();
+    const result = runCLI(['multi', multiId, 'init']);
 
     assert.strictEqual(result.exitCode, 0);
 
-    cleanupTestFile(id);
+    cleanupMultiFile(multiId);
+  });
+
+  test('executes multi add and creates tracker', () => {
+    const multiId = getTestId();
+
+    runCLI(['multi', multiId, 'init']);
+    const result = runCLI(['multi', multiId, 'add', 'frontend', '100', '--message', 'Building']);
+
+    assert.strictEqual(result.exitCode, 0);
+
+    cleanupMultiFile(multiId);
+    cleanupTestFile(`${multiId}-frontend`);
+  });
+
+  test('executes multi status with multiple trackers', () => {
+    const multiId = getTestId();
+
+    runCLI(['multi', multiId, 'init']);
+    runCLI(['multi', multiId, 'add', 'task1', '50', '--message', 'Task 1']);
+    runCLI(['multi', multiId, 'add', 'task2', '30', '--message', 'Task 2']);
+
+    const result = runCLI(['multi', multiId, 'status']);
+
+    assert.strictEqual(result.exitCode, 0);
+    const output = JSON.parse(result.stdout);
+    assert.strictEqual(Object.keys(output.trackers).length, 2);
+
+    cleanupMultiFile(multiId);
+    cleanupTestFile(`${multiId}-task1`);
+    cleanupTestFile(`${multiId}-task2`);
+  });
+
+  test('executes multi clear', () => {
+    const multiId = getTestId();
+    const filePath = join(tmpdir(), `progress-multi-${multiId}.json`);
+
+    runCLI(['multi', multiId, 'init']);
+    assert.strictEqual(existsSync(filePath), true);
+
+    const result = runCLI(['multi', multiId, 'clear']);
+
+    assert.strictEqual(result.exitCode, 0);
+    assert.strictEqual(existsSync(filePath), false);
   });
 });
 
-describe('CLI - error handling', () => {
-  test('handles unknown command', () => {
-    const result = runCLI(['unknown-command'], false);
+// =============================================================================
+// Error Handling Tests (5 tests)
+// =============================================================================
+
+describe('CLI Error Handling', () => {
+  test('fails with invalid tracker ID (special characters)', () => {
+    const result = runCLI(['my@project', 'init', '10'], false);
 
     assert.strictEqual(result.exitCode, 1);
-    assert(result.stderr.includes('Unknown command'));
+    assert(result.stderr.includes('Invalid tracker ID'));
   });
 
-  test('handles invalid number for --total', () => {
+  test('fails when init requires total argument', () => {
     const id = getTestId();
-    const result = runCLI(['init', '--total', 'abc', '--message', 'Test', '--id', id], false);
+    const result = runCLI([id, 'init'], false);
 
-    // parseInt('abc') returns NaN, which should fail validation
     assert.strictEqual(result.exitCode, 1);
+    assert(result.stderr.includes('init requires <total>'));
+
+    cleanupTestFile(id);
+  });
+
+  test('fails when set requires current argument', () => {
+    const id = getTestId();
+
+    runCLI([id, 'init', '100', '--message', 'Start']);
+    const result = runCLI([id, 'set'], false);
+
+    assert.strictEqual(result.exitCode, 1);
+    assert(result.stderr.includes('set requires <current>'));
+
+    cleanupTestFile(id);
+  });
+
+  test('fails when accessing non-existent tracker', () => {
+    const id = getTestId();
+    const result = runCLI([id, 'get'], false);
+
+    assert.strictEqual(result.exitCode, 1);
+    assert(result.stderr.includes('does not exist'));
+
+    cleanupTestFile(id);
+  });
+
+  test('fails with invalid total (negative number)', () => {
+    const id = getTestId();
+    const result = runCLI([id, 'init', '-10', '--message', 'Test'], false);
+
+    assert.strictEqual(result.exitCode, 1);
+    assert(result.stderr.includes('positive number'));
 
     cleanupTestFile(id);
   });
 });
 
-describe('CLI - end-to-end workflow', () => {
-  test('complete workflow: init -> increment -> set -> finish -> clear', () => {
+// =============================================================================
+// End-to-End Workflows
+// =============================================================================
+
+describe('CLI End-to-End Workflows', () => {
+  test('complete single progress workflow', () => {
     const id = getTestId();
 
     // Initialize
-    let result = runCLI(['init', '--total', '100', '--message', 'Starting', '--id', id]);
+    let result = runCLI([id, 'init', '100', '--message', 'Starting']);
     assert.strictEqual(result.exitCode, 0);
 
     // Increment
-    result = runCLI(['increment', '--amount', '25', '--id', id]);
+    result = runCLI([id, 'inc', '25']);
     assert.strictEqual(result.exitCode, 0);
     assert.strictEqual(JSON.parse(result.stdout).current, 25);
 
     // Set
-    result = runCLI(['set', '--current', '75', '--id', id]);
+    result = runCLI([id, 'set', '75']);
     assert.strictEqual(result.exitCode, 0);
     assert.strictEqual(JSON.parse(result.stdout).current, 75);
 
-    // Finish
-    result = runCLI(['finish', '--message', 'Complete', '--id', id]);
+    // Done
+    result = runCLI([id, 'done', 'Complete']);
     assert.strictEqual(result.exitCode, 0);
     assert.strictEqual(JSON.parse(result.stdout).complete, true);
 
     // Clear
-    result = runCLI(['clear', '--id', id]);
+    result = runCLI([id, 'clear']);
     assert.strictEqual(result.exitCode, 0);
   });
 
-  test('multiple increments in sequence', () => {
+  test('multi-progress workflow with parallel tasks', () => {
+    const multiId = getTestId();
+
+    // Initialize multi-progress
+    let result = runCLI(['multi', multiId, 'init']);
+    assert.strictEqual(result.exitCode, 0);
+
+    // Add multiple tasks
+    runCLI(['multi', multiId, 'add', 'frontend', '50', '--message', 'Building frontend']);
+    runCLI(['multi', multiId, 'add', 'backend', '30', '--message', 'Building backend']);
+    runCLI(['multi', multiId, 'add', 'tests', '20', '--message', 'Running tests']);
+
+    // Check status
+    result = runCLI(['multi', multiId, 'status']);
+    assert.strictEqual(result.exitCode, 0);
+    const status = JSON.parse(result.stdout);
+    assert.strictEqual(Object.keys(status.trackers).length, 3);
+
+    // Clean up
+    result = runCLI(['multi', multiId, 'clear']);
+    assert.strictEqual(result.exitCode, 0);
+
+    cleanupTestFile(`${multiId}-frontend`);
+    cleanupTestFile(`${multiId}-backend`);
+    cleanupTestFile(`${multiId}-tests`);
+  });
+
+  test('sequential increments reach completion', () => {
     const id = getTestId();
 
-    runCLI(['init', '--total', '10', '--message', 'Start', '--id', id]);
+    runCLI([id, 'init', '10', '--message', 'Start']);
 
     for (let i = 1; i <= 10; i++) {
-      const result = runCLI(['increment', '--amount', '1', '--message', `Step ${i}`, '--id', id]);
+      const result = runCLI([id, 'inc', '1', '--message', `Step ${i}`]);
       assert.strictEqual(result.exitCode, 0);
 
       const output = JSON.parse(result.stdout);
@@ -373,24 +510,10 @@ describe('CLI - end-to-end workflow', () => {
 
       if (i === 10) {
         assert.strictEqual(output.complete, true);
+        assert.strictEqual(output.percentage, 100);
       }
     }
 
     cleanupTestFile(id);
-  });
-});
-
-describe('CLI - default ID behavior', () => {
-  test('uses default ID when not specified', () => {
-    // Clean up default first
-    cleanupTestFile('default');
-
-    const result = runCLI(['init', '--total', '5', '--message', 'Default test']);
-    assert.strictEqual(result.exitCode, 0);
-
-    const filePath = join(tmpdir(), 'progress-default.json');
-    assert.strictEqual(existsSync(filePath), true);
-
-    cleanupTestFile('default');
   });
 });

@@ -3,13 +3,51 @@
 # CLI Progress Reporting / `prog`
 
 [![Tests](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml/badge.svg)](https://github.com/tuulbelt/cli-progress-reporting/actions/workflows/test.yml)
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Node](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen)
 ![Zero Dependencies](https://img.shields.io/badge/dependencies-0-success)
-![Tests](https://img.shields.io/badge/tests-111%2B%20passing-success)
+![Tests](https://img.shields.io/badge/tests-264%20passing-success)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Concurrent-safe progress reporting for CLI tools using file-based atomic writes.
+Concurrent-safe progress reporting for CLI tools with customizable templates and fluent API.
+
+## What's New in v0.3.0
+
+🚀 **Major Feature Release:**
+
+- **🌊 Streaming API** — Native async generator support with `ProgressStream` and `ProgressTransform` for Node.js streams
+- **🎯 Nested Command Structure** — More intuitive CLI: `prog <id> <action>` instead of `prog <action> --id <id>`
+- **📋 Formal Specification** — Complete SPEC.md documenting all behavior, algorithms, and invariants
+- **📚 Advanced Examples** — 4 comprehensive examples: concurrent downloads, build pipeline, streaming data, multi-service deployment
+- **⚡ Performance Benchmarks** — Statistical benchmarking with tatami-ng (criterion-equivalent rigor)
+- **🛡️ Buffer Overflow Protection** — List command limits output to prevent ENOBUFS errors
+- **🧹 Simplified Codebase** — Removed 195 lines of unnecessary backward compatibility code
+
+**Breaking Change:** CLI syntax has changed to a more intuitive nested structure. Update your scripts:
+```bash
+# Old (no longer supported)
+prog init --total 100 --id myproject
+
+# New
+prog myproject init 100
+```
+
+**Test Coverage:** Expanded from 239 to 264 tests (10.5% increase) with zero flaky tests.
+
+## What's New in v0.2.0
+
+🎉 Major enhancements:
+
+- **✨ Fluent Builder API** — Clean, chainable method syntax with `createProgress()`
+- **🎨 Template System** — 7 built-in templates + custom template support
+- **🔄 MultiProgress** — Track multiple progress states simultaneously
+- **⏱️ ETA Calculation** — Automatic time-remaining estimation
+- **🎭 Spinner Animations** — 5 built-in spinner sets (dots, line, arrows, box, clock)
+- **📊 Progress Bars** — Customizable Unicode progress bars
+- **📦 Object-Oriented API** — Modern class-based ProgressTracker
+- **🔙 Backward Compatible** — Original functional API still works
+
+**Test Coverage:** Expanded from 111 to 239 tests (116% increase) with zero flaky tests.
 
 ## Problem
 
@@ -26,8 +64,10 @@ Existing solutions require complex state management or don't handle concurrency 
 - **Zero runtime dependencies** — Uses only Node.js built-in modules
 - **Concurrent-safe** — Atomic file writes prevent corruption
 - **Persistent** — Progress survives process crashes and restarts
-- **Multi-tracker** — Track multiple independent progress states
-- **Simple API** — Both library and CLI interfaces
+- **Multi-tracker** — Track multiple independent progress states simultaneously
+- **Fluent API** — Modern builder pattern with method chaining
+- **Customizable templates** — 7 built-in formats + custom template support
+- **Multiple APIs** — Functional, object-oriented, and CLI interfaces
 - **TypeScript** — Full type safety with strict mode
 
 ## Installation
@@ -54,7 +94,213 @@ No runtime dependencies — this tool uses only Node.js standard library.
 
 ## Usage
 
-### As a Library
+### Quick Start (Builder API)
+
+The easiest way to use the library is with the fluent Builder API:
+
+```typescript
+import { createProgress } from './src/index.js';
+
+// Create and configure a progress tracker
+const progress = createProgress()
+  .total(100)
+  .message('Processing files')
+  .build();
+
+// Update progress
+for (let i = 0; i < 100; i++) {
+  progress.increment(1, `Processing file ${i + 1}`);
+}
+
+// Mark as finished
+progress.finish('All files processed!');
+```
+
+### ProgressTracker (Object-Oriented API)
+
+For more control, use the ProgressTracker class directly:
+
+```typescript
+import { ProgressTracker } from './src/index.js';
+
+const tracker = new ProgressTracker({ id: 'my-task' });
+
+// Initialize
+const initResult = tracker.init(100, 'Processing files');
+if (!initResult.ok) {
+  console.error(initResult.error);
+  process.exit(1);
+}
+
+// Increment progress
+for (let i = 0; i < 100; i++) {
+  tracker.increment(1, `Processing file ${i + 1}`);
+}
+
+// Get current state
+const state = tracker.get();
+if (state.ok) {
+  console.log(`Progress: ${state.value.percentage}%`);
+}
+
+// Mark as finished
+tracker.finish('All files processed!');
+```
+
+### MultiProgress (Concurrent Tracking)
+
+Track multiple progress states simultaneously:
+
+```typescript
+import { MultiProgress } from './src/index.js';
+
+const multi = new MultiProgress();
+
+// Create multiple trackers
+const downloads = multi.create('downloads', 50, 'Downloading files');
+const uploads = multi.create('uploads', 30, 'Uploading results');
+
+// Update them independently
+downloads.increment(5);
+uploads.increment(3);
+
+// Get all states
+const allStates = multi.getAll();
+if (allStates.ok) {
+  for (const [id, state] of Object.entries(allStates.value)) {
+    console.log(`${id}: ${state.percentage}%`);
+  }
+}
+
+// Finish specific trackers
+downloads.finish('Downloads complete!');
+uploads.finish('Uploads complete!');
+
+// Clear all
+multi.clearAll();
+```
+
+### Streaming API (v0.3.0)
+
+Track progress while processing async iterables or Node.js streams:
+
+**ProgressStream (Async Generator):**
+
+```typescript
+import { ProgressStream } from './src/index.js';
+
+// Create a progress-tracked async generator
+const stream = new ProgressStream({
+  total: 100,
+  message: 'Processing items',
+  id: 'stream-task',
+  incrementAmount: 1,
+});
+
+// Iterate with automatic progress tracking
+for await (const item of stream) {
+  // Process each item (0-99)
+  await processItem(item);
+  // Progress auto-increments after each iteration
+}
+
+// Stream automatically marks complete when done
+```
+
+**ProgressTransform (Node.js Streams):**
+
+```typescript
+import { ProgressTransform } from './src/index.js';
+import { createReadStream, createWriteStream } from 'node:fs';
+import { pipeline } from 'node:stream/promises';
+
+// Create a transform stream with progress tracking
+const progressTransform = new ProgressTransform({
+  total: fileSize,
+  message: 'Copying file',
+  id: 'file-copy',
+  updateInterval: 100, // Update every 100 bytes
+});
+
+// Use in pipeline
+await pipeline(
+  createReadStream('input.dat'),
+  progressTransform,
+  createWriteStream('output.dat')
+);
+
+console.log('File copied:', progressTransform.getProgress());
+```
+
+**Streaming with attachProgress helper:**
+
+```typescript
+import { attachProgress } from './src/index.js';
+import { createReadStream } from 'node:fs';
+
+// Attach progress tracking to any readable stream
+const fileStream = createReadStream('large-file.bin');
+const progressStream = attachProgress(fileStream, {
+  total: fileSize,
+  message: 'Reading file',
+  id: 'file-read',
+});
+
+// Monitor progress while streaming
+progressStream.on('data', (chunk) => {
+  // Process data
+});
+
+progressStream.on('end', () => {
+  const progress = progressStream.getProgress();
+  console.log(`Read complete: ${progress.percentage}%`);
+});
+```
+
+### Custom Templates
+
+Customize output format with templates:
+
+```typescript
+import { ProgressTracker, TemplateEngine, templates, spinners } from './src/index.js';
+
+const tracker = new ProgressTracker({ id: 'my-task' });
+const engine = new TemplateEngine({
+  spinnerFrames: spinners.dots,
+  barWidth: 30,
+});
+
+tracker.init(100, 'Processing');
+
+// Use built-in templates
+const state = tracker.get();
+if (state.ok) {
+  console.log(engine.render(templates.bar, state.value));
+  // [███████░░░░░░░░░░░░░░░░░░░░░░░] 25%
+
+  console.log(engine.render(templates.spinner, state.value));
+  // ⠋ Processing
+
+  console.log(engine.render(templates.full, state.value));
+  // [███████░░░░░░░░░░░░░░░░░░░░░░░] 25% - Processing (5s elapsed)
+}
+
+// Or create custom templates
+const customTemplate = '{{spinner}} [{{percentage}}%] {{current}}/{{total}} - {{message}}';
+console.log(engine.render(customTemplate, state.value));
+// ⠙ [25%] 25/100 - Processing
+
+// Function-based templates for full control
+const advancedTemplate = (vars) => {
+  const eta = vars.eta > 0 ? ` (ETA: ${vars.eta}s)` : '';
+  return `${vars.bar} ${vars.percentage}% - ${vars.message}${eta}`;
+};
+console.log(engine.render(advancedTemplate, state.value));
+```
+
+### Legacy Functional API
+
+The original functional API is still supported for backward compatibility:
 
 ```typescript
 import { init, increment, get, finish, formatProgress } from './src/index.js';
@@ -85,24 +331,59 @@ finish('All files processed!', config);
 
 ### As a CLI
 
+The CLI uses a nested command structure where the tracker ID comes first:
+
+**Single Progress Tracker:**
 ```bash
-# Initialize progress
-prog init --total 100 --message "Processing files" --id myproject
+# Initialize progress (tracker-id first, then action)
+prog myproject init 100 --message "Processing files"
 
 # Increment progress
-prog increment --amount 5 --id myproject
+prog myproject inc 5 --message "Processing item 5"
 
 # Set absolute progress
-prog set --current 75 --message "Almost done" --id myproject
+prog myproject set 75 --message "Almost done"
 
-# Get current state
-prog get --id myproject
+# Get current state (returns JSON)
+prog myproject get
 
 # Mark as finished
-prog finish --message "Complete!" --id myproject
+prog myproject done "Complete!"
 
 # Clear progress file
-prog clear --id myproject
+prog myproject clear
+```
+
+**Multi-Progress Tracking:**
+```bash
+# Initialize multi-progress container
+prog multi builds init
+
+# Add individual trackers
+prog multi builds add frontend 50 --message "Building frontend"
+prog multi builds add backend 30 --message "Building backend"
+
+# Check status of all trackers
+prog multi builds status
+
+# Mark all as done
+prog multi builds done
+
+# Clear all
+prog multi builds clear
+```
+
+**Global Commands:**
+```bash
+# List all active trackers
+prog list
+
+# Show version
+prog version
+
+# Show help
+prog help
+prog help init      # Help for specific command
 ```
 
 ### In Shell Scripts
@@ -113,22 +394,219 @@ prog clear --id myproject
 TASK_ID="my-batch-job"
 TOTAL_FILES=$(ls data/*.csv | wc -l)
 
-# Initialize
-prog init --total $TOTAL_FILES --message "Processing CSV files" --id "$TASK_ID"
+# Initialize (new syntax: ID first, then action)
+prog "$TASK_ID" init "$TOTAL_FILES" --message "Processing CSV files"
 
 # Process files
 for file in data/*.csv; do
   process_file "$file"
-  prog increment --amount 1 --message "Processed $(basename $file)" --id "$TASK_ID"
+  prog "$TASK_ID" inc 1 --message "Processed $(basename $file)"
 done
 
 # Finish
-prog finish --message "All files processed" --id "$TASK_ID"
+prog "$TASK_ID" done "All files processed"
+
+# Clear when done
+prog "$TASK_ID" clear
+```
+
+**Multi-progress example:**
+```bash
+#!/bin/bash
+
+# Initialize multi-progress for parallel tasks
+prog multi deployment init
+
+# Start multiple sub-tasks
+prog multi deployment add database 5 --message "Migrating database"
+prog multi deployment add assets 20 --message "Compiling assets"
+prog multi deployment add services 10 --message "Deploying services"
+
+# Update individual trackers as tasks progress
+for i in {1..5}; do
+  migrate_database "$i"
+  prog multi deployment add database "$i"
+done
+
+# Check overall status
+prog multi deployment status
+
+# Clean up
+prog multi deployment clear
 ```
 
 ## API
 
-### `init(total: number, message: string, config?: ProgressConfig): Result<ProgressState>`
+### New APIs (v0.2.0)
+
+#### `createProgress(): ProgressBuilder`
+
+Create a new progress tracker using the fluent Builder API.
+
+**Returns:** ProgressBuilder instance for method chaining
+
+**Example:**
+```typescript
+const progress = createProgress()
+  .id('my-task')
+  .total(100)
+  .message('Processing')
+  .build();
+```
+
+---
+
+#### `ProgressBuilder`
+
+Fluent API for configuring progress trackers.
+
+**Methods:**
+- `id(id: string): ProgressBuilder` — Set tracker ID
+- `total(total: number): ProgressBuilder` — Set total units
+- `message(message: string): ProgressBuilder` — Set initial message
+- `filePath(path: string): ProgressBuilder` — Set custom file path
+- `build(): ProgressTracker` — Build and return configured tracker
+
+**Example:**
+```typescript
+const progress = createProgress()
+  .id('downloads')
+  .total(50)
+  .message('Downloading files')
+  .build();
+
+progress.increment(5);
+```
+
+---
+
+#### `ProgressTracker`
+
+Object-oriented API for managing a single progress tracker.
+
+**Constructor:**
+```typescript
+new ProgressTracker(config?: ProgressConfig)
+```
+
+**Methods:**
+- `init(total: number, message: string): Result<ProgressState>` — Initialize progress
+- `increment(amount?: number, message?: string): Result<ProgressState>` — Increment by amount (default 1)
+- `set(current: number, message?: string): Result<ProgressState>` — Set absolute progress
+- `finish(message?: string): Result<ProgressState>` — Mark as complete
+- `get(): Result<ProgressState>` — Get current state
+- `clear(): Result<void>` — Remove progress file
+
+**Example:**
+```typescript
+const tracker = new ProgressTracker({ id: 'uploads' });
+tracker.init(100, 'Uploading files');
+tracker.increment(10, 'Uploaded batch 1');
+tracker.finish('All files uploaded');
+```
+
+---
+
+#### `MultiProgress`
+
+Manage multiple progress trackers simultaneously.
+
+**Constructor:**
+```typescript
+new MultiProgress()
+```
+
+**Methods:**
+- `create(id: string, total: number, message: string): ProgressTracker` — Create new tracker
+- `get(id: string): ProgressTracker | undefined` — Get existing tracker
+- `getAll(): Result<Record<string, ProgressState>>` — Get all tracker states
+- `clearAll(): Result<void>` — Clear all trackers
+- `has(id: string): boolean` — Check if tracker exists
+
+**Example:**
+```typescript
+const multi = new MultiProgress();
+const downloads = multi.create('downloads', 50, 'Downloading');
+const uploads = multi.create('uploads', 30, 'Uploading');
+
+downloads.increment(5);
+uploads.increment(3);
+
+const allStates = multi.getAll();
+```
+
+---
+
+#### `TemplateEngine`
+
+Render progress state with customizable templates.
+
+**Constructor:**
+```typescript
+new TemplateEngine(options?: {
+  spinnerFrames?: readonly string[];
+  barWidth?: number;
+})
+```
+
+**Methods:**
+- `render(template: Template, state: ProgressState): string` — Render template with state
+- `resetSpinner(): void` — Reset spinner to first frame
+- `setSpinnerFrames(frames: readonly string[]): void` — Change spinner frames
+- `setBarWidth(width: number): void` — Change progress bar width
+
+**Template Variables:**
+- `{{percentage}}` — Percentage complete (0-100)
+- `{{current}}` — Current value
+- `{{total}}` — Total value
+- `{{message}}` — User message
+- `{{elapsed}}` — Elapsed seconds
+- `{{spinner}}` — Animated spinner character
+- `{{bar}}` — Progress bar string
+- `{{eta}}` — Estimated time remaining (seconds)
+
+**Built-in Templates:**
+- `templates.bar` — `"{{bar}} {{percentage}}%"`
+- `templates.spinner` — `"{{spinner}} {{message}}"`
+- `templates.percentage` — `"{{percentage}}%"`
+- `templates.detailed` — `"[{{percentage}}%] {{current}}/{{total}} - {{message}} ({{elapsed}}s)"`
+- `templates.minimal` — `"{{message}} {{percentage}}%"`
+- `templates.full` — `"{{bar}} {{percentage}}% - {{message}} ({{elapsed}}s elapsed{{eta}})"`
+- `templates.spinnerProgress` — `"{{spinner}} [{{percentage}}%] {{message}}"`
+
+**Built-in Spinners:**
+- `spinners.dots` — `['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏']`
+- `spinners.line` — `['|', '/', '-', '\\']`
+- `spinners.arrows` — `['←', '↖', '↑', '↗', '→', '↘', '↓', '↙']`
+- `spinners.box` — `['◰', '◳', '◲', '◱']`
+- `spinners.clock` — `['🕐', '🕑', '🕒', '🕓', '🕔', '🕕', '🕖', '🕗', '🕘', '🕙', '🕚', '🕛']`
+
+**Example:**
+```typescript
+import { TemplateEngine, templates, spinners } from './src/index.js';
+
+const engine = new TemplateEngine({
+  spinnerFrames: spinners.dots,
+  barWidth: 20,
+});
+
+const state = tracker.get();
+if (state.ok) {
+  console.log(engine.render(templates.full, state.value));
+  // [████████░░░░░░░░░░░░] 40% - Processing (5s elapsed)
+}
+
+// Custom template
+const custom = '{{spinner}} {{percentage}}% complete';
+console.log(engine.render(custom, state.value));
+// ⠋ 40% complete
+```
+
+---
+
+### Legacy Functional API
+
+#### `init(total: number, message: string, config?: ProgressConfig): Result<ProgressState>`
 
 Initialize progress tracking.
 
@@ -294,29 +772,42 @@ Multiple processes can safely update the same progress tracker.
 See the `examples/` directory for runnable examples:
 
 ```bash
-# Basic usage
-npx tsx examples/basic.ts
+# Quick start with Builder API (recommended)
+npx tsx examples/builder-api.ts
 
-# Concurrent tracking
-npx tsx examples/concurrent.ts
+# Multi-progress tracking
+npx tsx examples/multi-progress.ts
 
-# Shell script usage
-bash examples/cli-usage.sh
+# Custom templates and spinners
+npx tsx examples/templates.ts
+
+# Advanced multi-stage pipeline
+npx tsx examples/advanced.ts
+
+# Legacy examples
+npx tsx examples/basic.ts          # Original functional API
+npx tsx examples/concurrent.ts     # Original concurrent tracking
+bash examples/cli-usage.sh         # Shell script usage
 ```
 
 ## Testing
 
 ```bash
-npm test              # Run all tests (111 tests)
+npm test              # Run all tests (239 tests)
 npm run build         # TypeScript compilation
 npx tsc --noEmit      # Type check only
 ```
 
-**Test Coverage:** 111 tests
-- Unit tests (35 tests)
+**Test Coverage:** 239 tests
+- Functional API tests (35 tests)
 - CLI integration tests (28 tests)
 - Filesystem edge cases (21 tests)
 - Fuzzy tests (32 tests)
+- ProgressTracker tests (28 tests)
+- ProgressBuilder tests (17 tests)
+- createProgress tests (7 tests)
+- MultiProgress tests (23 tests)
+- Template system tests (48 tests)
 
 **Test Quality:**
 - 100% pass rate
@@ -353,8 +844,8 @@ This provides:
 ```bash
 ./scripts/dogfood-flaky.sh 20
 # ✅ NO FLAKINESS DETECTED
-# 125 tests × 20 runs = 2,500 executions
-# Validates concurrent progress tracking
+# 239 tests × 20 runs = 4,780 executions
+# Validates concurrent progress tracking and template rendering
 ```
 
 **Output Diffing Utility** - Prove deterministic outputs:
@@ -419,10 +910,11 @@ This ensures concurrent processes never read partial writes.
 
 Potential improvements for future versions:
 
-- Real-time progress streaming via WebSocket or Server-Sent Events
-- Built-in progress bar rendering with customizable formats
-- Progress aggregation across multiple trackers
-- Time estimation based on historical progress rates
+- ✅ **Built-in progress bar rendering with customizable formats** — Completed in v0.2.0 (TemplateEngine)
+- ✅ **Progress aggregation across multiple trackers** — Completed in v0.2.0 (MultiProgress)
+- ✅ **Time estimation based on historical progress rates** — Completed in v0.2.0 (ETA calculation)
+- Real-time progress streaming via WebSocket or Server-Sent Events (planned for v0.3.0)
+- CLI nested command structure for better UX (planned for v0.3.0)
 - Integration with popular build tools (npm scripts, Make, Gradle)
 - Optional compression for progress state files
 

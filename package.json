@@ -1,6 +1,6 @@
 {
   "name": "@tuulbelt/cli-progress-reporting",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "description": "Concurrent-safe progress reporting for CLI tools",
   "main": "src/index.ts",
   "type": "module",
@@ -10,12 +10,13 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts",
+    "test": "node --import tsx --test test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts test/progress-tracker.test.ts test/progress-builder.test.ts test/create-progress.test.ts test/multi-progress.test.ts test/templates.test.ts test/streaming.test.ts",
     "test:unit": "node --import tsx --test test/index.test.ts",
     "test:cli": "node --import tsx --test test/cli.test.ts",
     "test:filesystem": "node --import tsx --test test/filesystem.test.ts",
     "test:fuzzy": "node --import tsx --test test/fuzzy.test.ts",
-    "test:watch": "node --import tsx --test --watch test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts",
+    "test:phase1": "node --import tsx --test test/progress-tracker.test.ts test/progress-builder.test.ts test/create-progress.test.ts",
+    "test:watch": "node --import tsx --test --watch test/index.test.ts test/cli.test.ts test/filesystem.test.ts test/fuzzy.test.ts test/progress-tracker.test.ts test/progress-builder.test.ts test/create-progress.test.ts",
     "bench": "node --import tsx benchmarks/index.bench.ts",
     "dogfood": "npm run dogfood:flaky",
     "dogfood:flaky": "flaky --test 'npm test' --runs 10"
